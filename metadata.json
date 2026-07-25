@@ -1,0 +1,6 @@
+{
+  "name": "قالیشویی زمرد (پیک و رانندگان)",
+  "description": "سامانه اختصاصی رانندگان و پیک‌های قالیشویی زمرد جهت ثبت فرش در محل، صدور پیش‌فاکتور، چاپ حرارتی، تخصیص قفسه انبار، مسیریابی و تسویه حساب مالی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,67 @@
+package com.example.utils
+
+import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+object FarsiUtils {
+
+    fun formatPrice(amountToman: Long): String {
+        val formatter = DecimalFormat("#,###")
+        val formatted = formatter.format(amountToman)
+        return "${toFarsiDigits(formatted)} تومان"
+    }
+
+    fun toFarsiDigits(input: String): String {
+        val farsiDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+        val builder = StringBuilder()
+        for (ch in input) {
+            if (ch in '0'..'9') {
+                builder.append(farsiDigits[ch - '0'])
+            } else {
+                builder.append(ch)
+            }
+        }
+        return builder.toString()
+    }
+
+    fun formatArea(sqMeters: Double): String {
+        val formatted = String.format(Locale.US, "%.2f", sqMeters)
+        return "${toFarsiDigits(formatted)} متر مربع"
+    }
+
+    fun formatCurrentTimeFarsi(): String {
+        val sdf = SimpleDateFormat("HH:mm - yyyy/MM/dd", Locale.getDefault())
+        return toFarsiDigits(sdf.format(Date()))
+    }
+
+    fun formatShortTime(timestamp: Long): String {
+        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+        return toFarsiDigits(sdf.format(Date(timestamp)))
+    }
+
+    fun getCarpetTypeLabel(type: String): String {
+        return when (type) {
+            "MACHINE" -> "فرش ماشینی"
+            "HANDMADE" -> "فرش دستبافت"
+            "SILK" -> "فرش ابریشم / گل‌ابریشم"
+            "GELIM" -> "گلیم / گبه / جاجیم"
+            "FANTASY" -> "فرش مدرن / فانتزی"
+            else -> type
+        }
+    }
+
+    fun getOrderStatusLabel(status: String): String {
+        return when (status) {
+            "ASSIGNED" -> "تخصیص‌یافته به راننده"
+            "COLLECTED_IN_INSPECTION" -> "ثبت شده در محل (پیش‌فاکتور)"
+            "DELIVERED_TO_WORKSHOP" -> "تحویل به کارگاه (قفسه‌بندی)"
+            "WASHING" -> "در حال شست‌وشو"
+            "READY_FOR_DELIVERY" -> "آماده تحویل به مشتری"
+            "DELIVERED_SETTLED" -> "تحویل داده شده و تسویه کامل"
+            "CANCELLED" -> "لغو شده"
+            else -> status
+        }
+    }
+}
