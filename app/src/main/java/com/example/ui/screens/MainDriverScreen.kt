@@ -335,6 +335,9 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                         },
                         onOpenScanner = { targetId ->
                             viewModel.openScanner(com.example.data.model.ScanStage.DELIVERY, targetId)
+                        },
+                        onSettleWithOffice = {
+                            viewModel.settleWithOffice()
                         }
                     )
                     4 -> DispatchChatScreen(

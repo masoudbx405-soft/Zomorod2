@@ -97,39 +97,55 @@ object PrinterManager {
         discount: Long,
         netPayable: Long,
         paymentMethod: String,
-        rackCode: String
+        rackCode: String,
+        includeTwoCopies: Boolean = true
     ): String {
-        val sb = StringBuilder()
-        sb.append("===============================\n")
-        sb.append("     *** قالیشویی زمرد ***\n")
-        sb.append("    $title\n")
-        sb.append("===============================\n")
-        sb.append("شماره فاکتور: $orderId\n")
-        sb.append("تاریخ و زمان: ${FarsiUtils.formatCurrentTimeFarsi()}\n")
-        sb.append("نام مشتری: $customerName\n")
-        sb.append("تلفن تماس: $customerPhone\n")
-        sb.append("آدرس: $address\n")
-        sb.append("-------------------------------\n")
-        sb.append("اقلام سفارش (فرش‌ها):\n")
-        carpetItemsSummary.forEachIndexed { index, item ->
-            sb.append("${index + 1}. $item\n")
-        }
-        sb.append("-------------------------------\n")
-        if (rackCode.isNotEmpty()) {
-            sb.append("شماره قفسه انبار: $rackCode\n")
+        fun buildSingleCopy(copyTitle: String): String {
+            val sb = StringBuilder()
+            sb.append("===============================\n")
+            sb.append("     *** قالیشویی زمرد ***\n")
+            sb.append("    $title\n")
+            sb.append("     >>>> $copyTitle <<<<\n")
+            sb.append("===============================\n")
+            sb.append("شماره فاکتور: $orderId\n")
+            sb.append("تاریخ و زمان: ${FarsiUtils.formatCurrentTimeFarsi()}\n")
+            sb.append("نام مشتری: $customerName\n")
+            sb.append("تلفن تماس: $customerPhone\n")
+            sb.append("آدرس: $address\n")
             sb.append("-------------------------------\n")
+            sb.append("اقلام سفارش (فرش‌ها):\n")
+            carpetItemsSummary.forEachIndexed { index, item ->
+                sb.append("${index + 1}. $item\n")
+            }
+            sb.append("-------------------------------\n")
+            if (rackCode.isNotEmpty()) {
+                sb.append("شماره قفسه انبار: $rackCode\n")
+                sb.append("-------------------------------\n")
+            }
+            sb.append("مبلغ کل فرش‌ها: ${FarsiUtils.formatPrice(totalPrice)}\n")
+            if (discount > 0) {
+                sb.append("مبلغ تخفیف: ${FarsiUtils.formatPrice(discount)}\n")
+            }
+            sb.append("مبلغ قابل پرداخت: ${FarsiUtils.formatPrice(netPayable)}\n")
+            sb.append("وضعیت تسویه: $paymentMethod\n")
+            sb.append("-------------------------------\n")
+            sb.append("  [ بارکد / QR کد پیگیری: ORD-$orderId ]\n")
+            sb.append("===============================\n")
+            sb.append(" امضاء و تایید تحویل‌گیرنده ($copyTitle):\n\n\n")
+            sb.append("...............................\n")
+            sb.append("سامانه انحصاری قالیشویی زمرد\n")
+            sb.append("===============================\n")
+            return sb.toString()
         }
-        sb.append("مبلغ کل فرش‌ها: ${FarsiUtils.formatPrice(totalPrice)}\n")
-        if (discount > 0) {
-            sb.append("مبلغ تخفیف: ${FarsiUtils.formatPrice(discount)}\n")
+
+        return if (includeTwoCopies) {
+            buildSingleCopy("نسخه مشتری") +
+                    "\n\n- - - - - - - - - - - - - - - -\n" +
+                    "      محل برش کاغذ پرینتر      \n" +
+                    "- - - - - - - - - - - - - - - -\n\n" +
+                    buildSingleCopy("نسخه راننده")
+        } else {
+            buildSingleCopy("نسخه تک برگ")
         }
-        sb.append("مبلغ قابل پرداخت: ${FarsiUtils.formatPrice(netPayable)}\n")
-        sb.append("وضعیت تسویه: $paymentMethod\n")
-        sb.append("===============================\n")
-        sb.append(" امضاء و تایید تحویل‌گیرنده:\n\n\n")
-        sb.append("...............................\n")
-        sb.append("سامانه انحصاری قالیشویی زمرد\n")
-        sb.append("===============================\n\n")
-        return sb.toString()
     }
 }

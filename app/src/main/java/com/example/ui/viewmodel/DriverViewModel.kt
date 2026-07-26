@@ -218,10 +218,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     fun confirmWarehouseHandover(orderId: String, rackCode: String) {
         viewModelScope.launch {
-            repository.updateRackAssignment(orderId, rackCode)
-            repository.updateOrderStatus(orderId, "DELIVERED_TO_WORKSHOP")
-            repository.syncWithWebPanel()
-            _syncToastMessage.value = "تأیید تحویل به انباردار و شماره قفسه $rackCode سفارش $orderId به پنل ارسال شد"
+            _isSyncing.value = true
+            try {
+                repository.updateRackAssignment(orderId, rackCode)
+                val isSynced = repository.syncWithWebPanel()
+                _isSyncing.value = false
+                if (isSynced) {
+                    repository.updateOrderStatus(orderId, "DELIVERED_TO_WORKSHOP")
+                    _syncToastMessage.value = "تأیید تحویل به انباردار و شماره قفسه $rackCode سفارش $orderId با موفقیت به پنل ارسال و از لیست حذف شد"
+                } else {
+                    _syncToastMessage.value = "خطا در ارسال اطلاعات به پنل! سفارش از لیست حذف نشد، لطفاً دوباره تلاش کنید."
+                }
+            } catch (e: Exception) {
+                _isSyncing.value = false
+                _syncToastMessage.value = "خطا در برقراری ارتباط با پنل انبار: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
+            }
         }
     }
 
@@ -234,6 +245,27 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.finalizeSettlement(orderId, paidAmount, discountAmount, paymentMethod)
             _syncToastMessage.value = "تسویه حساب سفارش $orderId نهایی شد"
+        }
+    }
+
+    fun settleWithOffice(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            try {
+                val success = repository.syncWithWebPanel()
+                repository.archiveSettledOrders()
+                _isSyncing.value = false
+                if (success) {
+                    _syncToastMessage.value = "تسویه روزانه با دفتر مدیریت انجام شد و لیست تصفیه‌شده‌های امروز پاک گردید."
+                    onSuccess()
+                } else {
+                    _syncToastMessage.value = "اطلاعات تسویه ذخیره شد و لیست تصفیه‌شده‌های امروز پاک گردید."
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                _isSyncing.value = false
+                _syncToastMessage.value = "خطا در تسویه با دفتر: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
+            }
         }
     }
 

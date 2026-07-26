@@ -43,11 +43,9 @@ fun CollectionRouteScreen(
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
 
-    // Filter pickup / collection orders (assigned, pickup type, or waiting for visit)
+    // Filter pickup / collection orders (only those pending collection / invoice registration)
     val pickupOrders = orders.filter {
-        it.order.orderType == "PICKUP" ||
-                it.order.status == "ASSIGNED" ||
-                it.order.status == "COLLECTED_IN_INSPECTION"
+        it.order.status == "ASSIGNED"
     }
 
     val filteredOrders = pickupOrders.filter { item ->
@@ -377,7 +375,7 @@ private fun CollectionOrderItemCard(
                     Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (itemCount == 0) "ثبت فاکتور و اسکن منگنه فرش" else "ویرایش/تکمیل ثبت فاکتور ($itemCount فرش)",
+                        text = if (itemCount == 0) "ثبت فاکتور و ثبت اقلام فرش" else "ویرایش/تکمیل ثبت فاکتور ($itemCount فرش)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )

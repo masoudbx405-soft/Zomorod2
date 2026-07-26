@@ -112,6 +112,12 @@ class ZomorrodRepository(
         }
     }
 
+    suspend fun archiveSettledOrders() {
+        withContext(Dispatchers.IO) {
+            orderDao.archiveSettledOrders()
+        }
+    }
+
     suspend fun syncWithWebPanel(): Boolean {
         return withContext(Dispatchers.IO) {
             try {

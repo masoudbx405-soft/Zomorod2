@@ -50,15 +50,15 @@ fun MissionsListScreen(
                 order.address.contains(searchQuery, true)
 
         val matchesType = when (selectedOrderTypeTab) {
-            1 -> order.orderType == "PICKUP" || order.status == "ASSIGNED" || order.status == "COLLECTED_IN_INSPECTION"
-            3 -> order.status == "COLLECTED_IN_INSPECTION" || order.status == "DELIVERED_TO_WORKSHOP" || order.rackCode.isNotBlank()
+            1 -> order.status == "ASSIGNED"
+            3 -> order.status == "COLLECTED_IN_INSPECTION"
             2 -> order.orderType == "DELIVERY" || order.status == "READY_FOR_DELIVERY" || order.status == "DELIVERED_SETTLED"
             else -> true
         }
 
         val matchesStatus = when (statusFilter) {
             "ASSIGNED" -> order.status == "ASSIGNED"
-            "COLLECTED" -> order.status == "COLLECTED_IN_INSPECTION" || order.status == "DELIVERED_TO_WORKSHOP"
+            "COLLECTED" -> order.status == "COLLECTED_IN_INSPECTION"
             "DELIVERY" -> order.status == "READY_FOR_DELIVERY"
             "SETTLED" -> order.status == "DELIVERED_SETTLED"
             else -> true

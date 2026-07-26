@@ -50,6 +50,9 @@ interface OrderDao {
     @Query("UPDATE orders SET status = :status, isSynced = 0, updatedAt = :updatedAt WHERE id = :orderId")
     suspend fun updateOrderStatus(orderId: String, status: String, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE orders SET status = 'OFFICE_SETTLED', isSynced = 0, updatedAt = :updatedAt WHERE status = 'DELIVERED_SETTLED'")
+    suspend fun archiveSettledOrders(updatedAt: Long = System.currentTimeMillis())
+
     @Query("SELECT COUNT(*) FROM orders WHERE isSynced = 0")
     fun getUnsyncedOrdersCount(): Flow<Int>
 

@@ -37,31 +37,28 @@ fun WarehouseHandoverScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, PENDING, COMPLETED
 
-    // Filter orders relevant for warehouse handover
+    // Filter orders relevant for warehouse handover (only pending handover to panel)
     val warehouseOrders = orders.filter { item ->
         val status = item.order.status
-        // Collect orders that are collected in inspection, delivered to workshop, or assigned with carpet items
-        status == "COLLECTED_IN_INSPECTION" || status == "DELIVERED_TO_WORKSHOP" || (status == "ASSIGNED" && item.items.isNotEmpty())
+        // Orders that are collected in inspection or assigned with carpet items, and NOT yet delivered to workshop
+        (status == "COLLECTED_IN_INSPECTION" || (status == "ASSIGNED" && item.items.isNotEmpty())) && status != "DELIVERED_TO_WORKSHOP"
     }.filter { item ->
-        val matchesSearch = item.order.id.contains(searchQuery, true) ||
+        val matchesSearch = searchQuery.isBlank() ||
+                item.order.id.contains(searchQuery, true) ||
                 item.order.customerName.contains(searchQuery, true) ||
                 item.order.rackCode.contains(searchQuery, true)
 
         val matchesFilter = when (selectedFilter) {
-            "PENDING" -> item.order.rackCode.isBlank() || item.order.status != "DELIVERED_TO_WORKSHOP"
-            "COMPLETED" -> item.order.rackCode.isNotBlank() && item.order.status == "DELIVERED_TO_WORKSHOP"
+            "PENDING" -> item.order.rackCode.isBlank()
+            "WITH_RACK" -> item.order.rackCode.isNotBlank()
             else -> true
         }
 
         matchesSearch && matchesFilter
     }
 
-    val pendingCount = orders.count {
-        (it.order.status == "COLLECTED_IN_INSPECTION" || (it.order.status == "ASSIGNED" && it.items.isNotEmpty())) && it.order.rackCode.isBlank()
-    }
-    val completedCount = orders.count {
-        it.order.status == "DELIVERED_TO_WORKSHOP" || it.order.rackCode.isNotBlank()
-    }
+    val pendingRackCount = warehouseOrders.count { it.order.rackCode.isBlank() }
+    val withRackCount = warehouseOrders.count { it.order.rackCode.isNotBlank() }
 
     Column(
         modifier = Modifier
@@ -119,7 +116,7 @@ fun WarehouseHandoverScreen(
                         color = CleanPurpleAccent.copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "${FarsiUtils.toFarsiDigits(pendingCount.toString())} سفارش در انتظار",
+                            text = "${FarsiUtils.toFarsiDigits(warehouseOrders.size.toString())} سفارش در انتظار تحویل",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = CleanPurpleAccent,
@@ -138,7 +135,7 @@ fun WarehouseHandoverScreen(
                     FilterChip(
                         selected = selectedFilter == "ALL",
                         onClick = { selectedFilter = "ALL" },
-                        label = { Text("همه انبار (${warehouseOrders.size})", fontSize = 11.sp) },
+                        label = { Text("همه در انتظار تحویل (${FarsiUtils.toFarsiDigits(warehouseOrders.size.toString())})", fontSize = 11.sp) },
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = CleanPurpleAccent,
@@ -148,7 +145,7 @@ fun WarehouseHandoverScreen(
                     FilterChip(
                         selected = selectedFilter == "PENDING",
                         onClick = { selectedFilter = "PENDING" },
-                        label = { Text("در انتظار قفسه (${pendingCount})", fontSize = 11.sp) },
+                        label = { Text("بدون قفسه (${FarsiUtils.toFarsiDigits(pendingRackCount.toString())})", fontSize = 11.sp) },
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = CleanPurpleAccent,
@@ -156,9 +153,9 @@ fun WarehouseHandoverScreen(
                         )
                     )
                     FilterChip(
-                        selected = selectedFilter == "COMPLETED",
-                        onClick = { selectedFilter = "COMPLETED" },
-                        label = { Text("تحویل شده (${completedCount})", fontSize = 11.sp) },
+                        selected = selectedFilter == "WITH_RACK",
+                        onClick = { selectedFilter = "WITH_RACK" },
+                        label = { Text("دارای قفسه (${FarsiUtils.toFarsiDigits(withRackCount.toString())})", fontSize = 11.sp) },
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = CleanPurpleAccent,

@@ -20,6 +20,7 @@ import com.example.data.local.entities.CarpetItemEntity
 import com.example.data.local.model.OrderWithItems
 import com.example.ui.components.AddCarpetItemDialog
 import com.example.ui.components.BarcodeView
+import com.example.ui.components.QrCodeView
 import com.example.ui.components.ReceiptPreviewDialog
 import com.example.utils.FarsiUtils
 
@@ -111,7 +112,7 @@ fun CarpetRegistrationScreen(
                         Spacer(modifier = Modifier.width(2.dp))
                         Column {
                             Text(
-                                text = "ثبت فاکتور اولیه و اسکن منگنه",
+                                text = "ثبت فاکتور اولیه و اسکن بارکد فرش",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = CleanPurpleAccent
@@ -235,7 +236,7 @@ fun CarpetRegistrationScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Pro-Forma Invoice Totals Box
+        // Pro-Forma Invoice Totals & QR Tracking Code Box
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = CleanPurpleContainer.copy(alpha = 0.5f)),
@@ -280,6 +281,42 @@ fun CarpetRegistrationScreen(
                         color = CleanPurpleAccent
                     )
                 }
+
+                if (items.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Divider(color = CleanPurpleAccent.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.QrCode, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("QR کد پیگیری فاکتور مشتری", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = CleanPurpleAccent)
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                "چاپ همزمان در ۲ نسخه (نسخه مشتری و نسخه راننده)",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.3f))
+                        ) {
+                            Box(modifier = Modifier.padding(4.dp)) {
+                                QrCodeView(code = "ORD-${order.id}", size = 52.dp)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -294,13 +331,13 @@ fun CarpetRegistrationScreen(
                 onClick = { showReceiptPreview = true },
                 enabled = items.isNotEmpty(),
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1.2f)
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("چاپ پیش‌فاکتور", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("چاپ فاکتور (۲ نسخه)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
             Button(
@@ -368,7 +405,7 @@ fun CarpetItemCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "منگنه: $displayTag",
+                                text = "کد فرش: $displayTag",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CleanPurpleAccent

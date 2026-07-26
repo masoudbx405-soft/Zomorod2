@@ -195,7 +195,7 @@ fun DeliveryRouteScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("جستجو در نام مشتری، کد قفسه یا بارکد منگنه...", fontSize = 11.sp) },
+            placeholder = { Text("جستجو در نام مشتری، کد قفسه یا شناسه فرش...", fontSize = 11.sp) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
@@ -682,7 +682,7 @@ private fun DeliveryReadyCard(
                                     color = CleanPurpleAccent
                                 ) {
                                     Text(
-                                        text = "منگنه: $stapleTag",
+                                        text = "کد فرش: $stapleTag",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,

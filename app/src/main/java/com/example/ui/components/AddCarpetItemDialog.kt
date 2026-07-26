@@ -73,6 +73,7 @@ fun AddCarpetItemDialog(
         "ضدالعفونی و اتو"
     )
     val selectedServices = remember { mutableStateListOf("شستشوی ویژه (اعلا)") }
+    var servicesDropdownExpanded by remember { mutableStateOf(false) }
 
     val availableDefects = listOf(
         "بدون عیب اولیه",
@@ -83,6 +84,7 @@ fun AddCarpetItemDialog(
         "تغییر رنگ / لکه شدید"
     )
     val selectedDefects = remember { mutableStateListOf("بدون عیب اولیه") }
+    var defectsDropdownExpanded by remember { mutableStateOf(false) }
 
     var customNotes by remember { mutableStateOf("") }
 
@@ -180,7 +182,7 @@ fun AddCarpetItemDialog(
                         OutlinedTextField(
                             value = barcodeTagText,
                             onValueChange = { barcodeTagText = it.uppercase() },
-                            label = { Text("کد منگنه فرش", fontSize = 11.sp) },
+                            label = { Text("شناسه / کد فرش", fontSize = 11.sp) },
                             singleLine = true,
                             leadingIcon = {
                                 Icon(
@@ -371,12 +373,12 @@ fun AddCarpetItemDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 4. Requested Services
+                // 4. Requested Services (Dropdown Menu)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CleanHands, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "۳. خدمات درخواستی:",
+                        text = "۳. انتخاب خدمات درخواستی:",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = CleanPurpleAccent
@@ -384,38 +386,83 @@ fun AddCarpetItemDialog(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ExposedDropdownMenuBox(
+                    expanded = servicesDropdownExpanded,
+                    onExpandedChange = { servicesDropdownExpanded = !servicesDropdownExpanded },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    availableServices.forEach { service ->
-                        val isSelected = selectedServices.contains(service)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                if (isSelected) selectedServices.remove(service)
-                                else selectedServices.add(service)
-                            },
-                            label = { Text(service, fontSize = 11.sp) },
-                            leadingIcon = if (isSelected) {
-                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CleanPurpleContainer,
-                                selectedLabelColor = CleanPurpleAccent
+                    OutlinedTextField(
+                        value = if (selectedServices.isEmpty()) "هیچ خدماتی انتخاب نشده" else selectedServices.joinToString("، "),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("لیست خدمات درخواستی") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Build, contentDescription = null, tint = CleanPurpleAccent)
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = servicesDropdownExpanded)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = servicesDropdownExpanded,
+                        onDismissRequest = { servicesDropdownExpanded = false }
+                    ) {
+                        availableServices.forEach { service ->
+                            val isSelected = selectedServices.contains(service)
+                            DropdownMenuItem(
+                                text = { Text(service, fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = null,
+                                        colors = CheckboxDefaults.colors(checkedColor = CleanPurpleAccent)
+                                    )
+                                },
+                                onClick = {
+                                    if (isSelected) selectedServices.remove(service)
+                                    else selectedServices.add(service)
+                                }
                             )
-                        )
+                        }
+                    }
+                }
+
+                if (selectedServices.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        selectedServices.forEach { service ->
+                            FilterChip(
+                                selected = true,
+                                onClick = { selectedServices.remove(service) },
+                                label = { Text(service, fontSize = 11.sp) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "حذف", modifier = Modifier.size(12.dp))
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CleanPurpleContainer,
+                                    selectedLabelColor = CleanPurpleAccent
+                                )
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 5. Initial Defects / Flaws
+                // 5. Initial Defects / Flaws (Dropdown Menu)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "۴. عیوب اولیه (قبل از شستشو):",
+                        text = "۴. ثبت عیوب اولیه (قبل از شستشو):",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.error
@@ -423,30 +470,81 @@ fun AddCarpetItemDialog(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ExposedDropdownMenuBox(
+                    expanded = defectsDropdownExpanded,
+                    onExpandedChange = { defectsDropdownExpanded = !defectsDropdownExpanded },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    availableDefects.forEach { defect ->
-                        val isSelected = selectedDefects.contains(defect)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                if (defect == "بدون عیب اولیه") {
-                                    selectedDefects.clear()
-                                    selectedDefects.add("بدون عیب اولیه")
-                                } else {
-                                    selectedDefects.remove("بدون عیب اولیه")
-                                    if (isSelected) selectedDefects.remove(defect)
-                                    else selectedDefects.add(defect)
+                    OutlinedTextField(
+                        value = if (selectedDefects.isEmpty()) "بدون عیب ثبت‌شده" else selectedDefects.joinToString("، "),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("لیست عیوب فرش") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = defectsDropdownExpanded)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = defectsDropdownExpanded,
+                        onDismissRequest = { defectsDropdownExpanded = false }
+                    ) {
+                        availableDefects.forEach { defect ->
+                            val isSelected = selectedDefects.contains(defect)
+                            DropdownMenuItem(
+                                text = { Text(defect, fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = null,
+                                        colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.error)
+                                    )
+                                },
+                                onClick = {
+                                    if (defect == "بدون عیب اولیه") {
+                                        selectedDefects.clear()
+                                        selectedDefects.add("بدون عیب اولیه")
+                                    } else {
+                                        selectedDefects.remove("بدون عیب اولیه")
+                                        if (isSelected) selectedDefects.remove(defect)
+                                        else selectedDefects.add(defect)
+                                    }
                                 }
-                            },
-                            label = { Text(defect, fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.error
                             )
-                        )
+                        }
+                    }
+                }
+
+                if (selectedDefects.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        selectedDefects.forEach { defect ->
+                            FilterChip(
+                                selected = true,
+                                onClick = {
+                                    selectedDefects.remove(defect)
+                                    if (selectedDefects.isEmpty()) selectedDefects.add("بدون عیب اولیه")
+                                },
+                                label = { Text(defect, fontSize = 11.sp) },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "حذف", modifier = Modifier.size(12.dp))
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.error
+                                )
+                            )
+                        }
                     }
                 }
 
