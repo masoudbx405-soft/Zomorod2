@@ -1,5 +1,16 @@
 package com.example.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,18 +32,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.example.data.local.model.OrderWithItems
 import com.example.data.model.ScanStage
 import com.example.data.model.ScanVerificationResult
 import com.example.ui.theme.CleanBlueContainer
 import com.example.ui.theme.CleanBluePrimary
 import com.example.ui.theme.CleanTealAccent
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +62,19 @@ fun BarcodeScannerModal(
     onConfirmVerification: (ScanVerificationResult.Success) -> Unit,
     onReportMismatchToDispatch: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
     var manualCodeInput by remember { mutableStateOf("") }
     var isFlashlightOn by remember { mutableStateOf(false) }
     var isBeepEnabled by remember { mutableStateOf(true) }
@@ -198,7 +229,7 @@ fun BarcodeScannerModal(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Simulated Camera Viewfinder with Scanner Frame
+                    // Camera Viewfinder with Real ML Kit CameraX Scanner Frame
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -209,28 +240,66 @@ fun BarcodeScannerModal(
                         )
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            // Camera preview background pattern
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                // Draw simulated background texture or grid
-                                val gridStep = 24.dp.toPx()
-                                for (x in 0..size.width.toInt() step gridStep.toInt()) {
-                                    drawLine(
-                                        color = Color.White.copy(alpha = 0.05f),
-                                        start = Offset(x.toFloat(), 0f),
-                                        end = Offset(x.toFloat(), size.height),
-                                        strokeWidth = 1f
+                            if (hasCameraPermission) {
+                                // Live Camera Feed using CameraX + ML Kit
+                                RealCameraPreviewView(
+                                    isFlashlightOn = isFlashlightOn,
+                                    onBarcodeDetected = { scanned ->
+                                        processScannedCode(scanned)
+                                    }
+                                )
+                            } else {
+                                // Camera Permission Request Button
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.CameraAlt,
+                                        contentDescription = null,
+                                        tint = CleanTealAccent,
+                                        modifier = Modifier.size(48.dp)
                                     )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "مجوز دسترسی به دوربین برای اسکن بارکد واقعی لازم است",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = {
+                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("فعالسازی دوربین گوشی", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
                                 }
-                                for (y in 0..size.height.toInt() step gridStep.toInt()) {
-                                    drawLine(
-                                        color = Color.White.copy(alpha = 0.05f),
-                                        start = Offset(0f, y.toFloat()),
-                                        end = Offset(size.width, y.toFloat()),
-                                        strokeWidth = 1f
-                                    )
+                            }
+
+                            // Viewfinder Center Reticle Overlay
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                if (!hasCameraPermission) {
+                                    // Grid texture if camera not enabled
+                                    val gridStep = 24.dp.toPx()
+                                    for (x in 0..size.width.toInt() step gridStep.toInt()) {
+                                        drawLine(
+                                            color = Color.White.copy(alpha = 0.05f),
+                                            start = Offset(x.toFloat(), 0f),
+                                            end = Offset(x.toFloat(), size.height),
+                                            strokeWidth = 1f
+                                        )
+                                    }
                                 }
 
-                                // Viewfinder Center Reticle
                                 val boxWidth = size.width * 0.72f
                                 val boxHeight = size.height * 0.65f
                                 val left = (size.width - boxWidth) / 2
@@ -240,7 +309,7 @@ fun BarcodeScannerModal(
 
                                 // Semi-transparent overlay outside reticle
                                 drawRect(
-                                    color = Color.Black.copy(alpha = 0.55f)
+                                    color = Color.Black.copy(alpha = 0.45f)
                                 )
 
                                 // Clear target rectangle
@@ -252,20 +321,16 @@ fun BarcodeScannerModal(
 
                                 // Corner brackets
                                 val cornerColor = CleanTealAccent
-                                // Top-Left corner
                                 drawLine(cornerColor, Offset(left, top), Offset(left + cornerLength, top), cornerStroke)
                                 drawLine(cornerColor, Offset(left, top), Offset(left, top + cornerLength), cornerStroke)
-                                // Top-Right corner
                                 drawLine(cornerColor, Offset(left + boxWidth, top), Offset(left + boxWidth - cornerLength, top), cornerStroke)
                                 drawLine(cornerColor, Offset(left + boxWidth, top), Offset(left + boxWidth, top + cornerLength), cornerStroke)
-                                // Bottom-Left corner
                                 drawLine(cornerColor, Offset(left, top + boxHeight), Offset(left + cornerLength, top + boxHeight), cornerStroke)
                                 drawLine(cornerColor, Offset(left, top + boxHeight), Offset(left, top + boxHeight - cornerLength), cornerStroke)
-                                // Bottom-Right corner
                                 drawLine(cornerColor, Offset(left + boxWidth, top + boxHeight), Offset(left + boxWidth - cornerLength, top + boxHeight), cornerStroke)
                                 drawLine(cornerColor, Offset(left + boxWidth, top + boxHeight), Offset(left + boxWidth, top + boxHeight - cornerLength), cornerStroke)
 
-                                // Animated Red/Teal Scanning Laser Line
+                                // Animated Scanning Laser Line
                                 val currentLaserY = top + (boxHeight * laserYRatio)
                                 drawLine(
                                     color = Color(0xFFFF5252),
@@ -275,27 +340,28 @@ fun BarcodeScannerModal(
                                 )
                             }
 
-                            // Viewfinder Controls Overlay
+                            // Viewfinder Controls Overlay Top
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
                                     .padding(12.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .background(Color.Black.copy(alpha = 0.65f))
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
                                     Icons.Default.Videocam,
                                     contentDescription = null,
-                                    tint = CleanTealAccent,
+                                    tint = if (hasCameraPermission) CleanTealAccent else Color.Gray,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "دوربین آماده اسکن خودکار...",
+                                    text = if (hasCameraPermission) "دوربین زنده فعال - اسکن بارکد/QR" else "دوربین غیرفعال است",
                                     color = Color.White,
-                                    fontSize = 11.sp
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
 
@@ -795,3 +861,98 @@ private fun ScanResultDialogOverlay(
         }
     }
 }
+
+/**
+ * Live CameraX Preview with ML Kit Barcode Analyzer
+ */
+@OptIn(ExperimentalGetImage::class)
+@Composable
+private fun RealCameraPreviewView(
+    isFlashlightOn: Boolean,
+    onBarcodeDetected: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    var lastScannedCode by remember { mutableStateOf("") }
+    var lastScannedTimestamp by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(isFlashlightOn, camera) {
+        try {
+            camera?.cameraControl?.enableTorch(isFlashlightOn)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    AndroidView(
+        factory = { ctx ->
+            val previewView = PreviewView(ctx)
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+
+                val barcodeScanner = BarcodeScanning.getClient()
+
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                    val mediaImage = imageProxy.image
+                    if (mediaImage != null) {
+                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                        barcodeScanner.process(image)
+                            .addOnSuccessListener { barcodes ->
+                                val now = System.currentTimeMillis()
+                                for (barcode in barcodes) {
+                                    val rawValue = barcode.rawValue
+                                    if (!rawValue.isNullOrBlank()) {
+                                        if (rawValue != lastScannedCode || (now - lastScannedTimestamp) > 3000) {
+                                            lastScannedCode = rawValue
+                                            lastScannedTimestamp = now
+                                            onBarcodeDetected(rawValue)
+                                        }
+                                        break
+                                    }
+                                }
+                            }
+                            .addOnCompleteListener {
+                                imageProxy.close()
+                            }
+                    } else {
+                        imageProxy.close()
+                    }
+                }
+
+                try {
+                    cameraProvider.unbindAll()
+                    camera = cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        imageAnalysis
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+
+            previewView
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraExecutor.shutdown()
+        }
+    }
+}
+

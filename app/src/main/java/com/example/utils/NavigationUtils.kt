@@ -10,12 +10,19 @@ object NavigationUtils {
     fun launchNeshan(context: Context, lat: Double, lng: Double, address: String) {
         try {
             val uri = Uri.parse("nshn:$lat,$lng")
-            val intent = Intent(Intent.ACTION_VIEW, uri)
-            intent.setPackage("org.neshan.maps")
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage("org.neshan.maps")
+            }
             context.startActivity(intent)
         } catch (e: Exception) {
-            // Fallback to web or general geo intent
-            launchGenericGeo(context, lat, lng, address)
+            try {
+                // Fallback to official Neshan Web Map API URL
+                val webUri = Uri.parse("https://neshan.org/maps/@$lat,$lng,16z,0p")
+                val webIntent = Intent(Intent.ACTION_VIEW, webUri)
+                context.startActivity(webIntent)
+            } catch (ex: Exception) {
+                launchGenericGeo(context, lat, lng, address)
+            }
         }
     }
 
