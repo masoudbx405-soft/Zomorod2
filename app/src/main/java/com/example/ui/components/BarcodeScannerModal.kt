@@ -867,7 +867,7 @@ private fun ScanResultDialogOverlay(
  */
 @OptIn(ExperimentalGetImage::class)
 @Composable
-private fun RealCameraPreviewView(
+internal fun RealCameraPreviewView(
     isFlashlightOn: Boolean,
     onBarcodeDetected: (String) -> Unit
 ) {

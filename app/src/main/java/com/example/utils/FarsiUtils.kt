@@ -59,6 +59,8 @@ object FarsiUtils {
             "DELIVERED_TO_WORKSHOP" -> "تحویل به کارگاه (قفسه‌بندی)"
             "WASHING" -> "در حال شست‌وشو"
             "READY_FOR_DELIVERY" -> "آماده تحویل به مشتری"
+            "RETURNED_TO_CLEAN_WAREHOUSE" -> "برگشت به قفسه تمیز انبار (عدم حضور مشتری)"
+            "OFFICE_SETTLED" -> "تسویه‌شده با دفتر مدیریت"
             "DELIVERED_SETTLED" -> "تحویل داده شده و تسویه کامل"
             "CANCELLED" -> "لغو شده"
             else -> status

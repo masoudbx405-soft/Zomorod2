@@ -29,25 +29,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
+import com.example.data.model.ScanStage
+import com.example.ui.components.BarcodeScannerModal
 import com.example.ui.components.BarcodeView
 import com.example.ui.theme.*
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
+
+import com.example.ui.components.ReturnToCleanWarehouseDialog
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeliveryRouteScreen(
     orders: List<OrderWithItems>,
     onSelectOrderForSettlement: (OrderWithItems) -> Unit,
-    onOpenScanner: (orderId: String) -> Unit
+    onOpenScanner: (orderId: String) -> Unit,
+    onReturnToCleanWarehouse: (orderId: String, cleanRackCode: String, reason: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
 
-    // Filter orders ready for delivery or assigned/collected that are scheduled on map
+    // Filter orders ready for delivery or assigned/collected that are scheduled on map (excluding settled or returned orders)
     val deliveryOrders = orders.filter {
-        it.order.status == "READY_FOR_DELIVERY" ||
+        (it.order.status == "READY_FOR_DELIVERY" ||
                 it.order.status == "DELIVERED_TO_WORKSHOP" ||
-                it.order.orderType == "DELIVERY"
+                it.order.orderType == "DELIVERY") &&
+                it.order.status != "DELIVERED_SETTLED" &&
+                it.order.status != "OFFICE_SETTLED" &&
+                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE"
     }
 
     // Selected order on map or from cards
@@ -57,6 +65,59 @@ fun DeliveryRouteScreen(
 
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, READY, WORKSHOP
     var searchQuery by remember { mutableStateOf("") }
+    var showDeliverySearchScanner by remember { mutableStateOf(false) }
+    var scanNoticeMessage by remember { mutableStateOf<String?>(null) }
+    var orderForCleanWarehouseReturn by remember { mutableStateOf<OrderWithItems?>(null) }
+
+    if (showDeliverySearchScanner) {
+        BarcodeScannerModal(
+            expectedOrder = null,
+            allOrders = deliveryOrders,
+            scanStage = ScanStage.DELIVERY,
+            onDismiss = { showDeliverySearchScanner = false },
+            onConfirmVerification = { result ->
+                showDeliverySearchScanner = false
+                val matchedOrder = result.orderWithItems
+                searchQuery = matchedOrder.order.id
+                onSelectOrderForSettlement(matchedOrder)
+            },
+            onReportMismatchToDispatch = { showDeliverySearchScanner = false }
+        )
+    }
+
+    if (scanNoticeMessage != null) {
+        AlertDialog(
+            onDismissRequest = { scanNoticeMessage = null },
+            confirmButton = {
+                TextButton(onClick = { scanNoticeMessage = null }) {
+                    Text("تأیید و بستن", fontWeight = FontWeight.Bold)
+                }
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = CleanBluePrimary)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("نتیجه اسکن بارکد فاکتور", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = { Text(scanNoticeMessage!!, fontSize = 13.sp) },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (orderForCleanWarehouseReturn != null) {
+        val target = orderForCleanWarehouseReturn!!
+        ReturnToCleanWarehouseDialog(
+            orderId = target.order.id,
+            customerName = target.order.customerName,
+            currentRackCode = target.order.rackCode,
+            onDismiss = { orderForCleanWarehouseReturn = null },
+            onConfirm = { cleanRackCode, reason ->
+                onReturnToCleanWarehouse(target.order.id, cleanRackCode, reason)
+                orderForCleanWarehouseReturn = null
+            }
+        )
+    }
 
     val filteredOrders = deliveryOrders.filter { item ->
         val matchesSearch = item.order.customerName.contains(searchQuery, true) ||
@@ -191,25 +252,44 @@ fun DeliveryRouteScreen(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Search Field
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("جستجو در نام مشتری، کد قفسه یا شناسه فرش...", fontSize = 11.sp) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "پاک کردن", modifier = Modifier.size(18.dp))
-                    }
-                }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+        // Search Field & Barcode Scanner Button
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("جستجو در نام، کد قفسه یا بارکد فاکتور...", fontSize = 11.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "پاک کردن", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = { showDeliverySearchScanner = true },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(52.dp)
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = "اسکن بارکد فاکتور", modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("اسکن فاکتور", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
 
         // Cards List
         if (filteredOrders.isEmpty()) {
@@ -251,6 +331,9 @@ fun DeliveryRouteScreen(
                         },
                         onProceedToSettlement = {
                             onSelectOrderForSettlement(item)
+                        },
+                        onReturnToCleanWarehouseClick = {
+                            orderForCleanWarehouseReturn = item
                         }
                     )
                 }
@@ -531,8 +614,10 @@ private fun DeliveryReadyCard(
     onCardClick: () -> Unit,
     onOpenScanner: () -> Unit,
     onNavigate: () -> Unit,
-    onProceedToSettlement: () -> Unit
+    onProceedToSettlement: () -> Unit,
+    onReturnToCleanWarehouseClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val order = orderWithItems.order
     val items = orderWithItems.items
     val rackCode = if (order.rackCode.isNotBlank()) order.rackCode else "قفسه A-01"
@@ -707,57 +792,95 @@ private fun DeliveryReadyCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action Buttons
+            // Icon-Only Action Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Scan Barcode Button
+                // 1. Direct Phone Call
+                IconButton(
+                    onClick = { NavigationUtils.makePhoneCall(context, order.customerPhone) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CleanBlueContainer)
+                ) {
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = "تماس با مشتری",
+                        tint = CleanBluePrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // 2. Neshan Navigation
+                IconButton(
+                    onClick = onNavigate,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFDCFCE7))
+                ) {
+                    Icon(
+                        Icons.Default.Navigation,
+                        contentDescription = "مسیریابی نشان",
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // 3. Scan Barcode
                 IconButton(
                     onClick = onOpenScanner,
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(CleanPurpleContainer)
                 ) {
                     Icon(
                         Icons.Default.QrCodeScanner,
-                        contentDescription = "اسکن بارکد قفسه",
-                        tint = CleanPurpleAccent
+                        contentDescription = "اسکن بارکد",
+                        tint = CleanPurpleAccent,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                // Neshan Navigation Button
-                OutlinedButton(
-                    onClick = onNavigate,
-                    shape = RoundedCornerShape(10.dp),
+                // 4. Return to Clean Warehouse (Customer Absent)
+                IconButton(
+                    onClick = onReturnToCleanWarehouseClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CleanPurpleContainer)
                 ) {
                     Icon(
-                        Icons.Default.Navigation,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = Color(0xFF22C55E)
+                        Icons.Default.Warehouse,
+                        contentDescription = "عدم حضور مشتری / برگشت به انبار",
+                        tint = CleanPurpleAccent,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("مسیریابی", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF22C55E))
                 }
 
-                // Proceed to Settlement / Delivery Button
-                Button(
+                // 5. Proceed to Settlement
+                IconButton(
                     onClick = onProceedToSettlement,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
                     modifier = Modifier
-                        .weight(1.3f)
+                        .weight(1f)
                         .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CleanBluePrimary)
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("تحویل و تسویه", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        Icons.Default.Payment,
+                        contentDescription = "تحویل و تسویه فاکتور",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

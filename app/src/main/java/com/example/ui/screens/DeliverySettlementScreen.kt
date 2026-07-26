@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
+import com.example.ui.components.ReturnToCleanWarehouseDialog
 import com.example.ui.components.SettlementDialog
 import com.example.ui.theme.CleanBlueContainer
 import com.example.ui.theme.CleanBluePrimary
@@ -33,15 +34,17 @@ fun DeliverySettlementScreen(
     onSettlePayment: (orderId: String, paidAmount: Long, discountAmount: Long, paymentMethod: String) -> Unit,
     onPrintReceipt: (OrderWithItems, String) -> Unit,
     onOpenScanner: (orderId: String) -> Unit = {},
-    onSettleWithOffice: () -> Unit = {}
+    onSettleWithOffice: () -> Unit = {},
+    onReturnToCleanWarehouse: (orderId: String, cleanRackCode: String, reason: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
 
-    // Active pending delivery orders (excluding settled ones)
+    // Active pending delivery orders (excluding settled or returned ones)
     val pendingDeliveryOrders = orders.filter {
         (it.order.orderType == "DELIVERY" || it.order.status == "READY_FOR_DELIVERY") &&
                 it.order.status != "DELIVERED_SETTLED" &&
-                it.order.status != "OFFICE_SETTLED"
+                it.order.status != "OFFICE_SETTLED" &&
+                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE"
     }
 
     // Today's settled orders waiting for office handover
@@ -51,16 +54,15 @@ fun DeliverySettlementScreen(
 
     var selectedTab by remember { mutableStateOf(0) } // 0: Pending, 1: Settled Today
     var selectedOrderForSettlement by remember { mutableStateOf<OrderWithItems?>(null) }
+    var orderForCleanWarehouseReturn by remember { mutableStateOf<OrderWithItems?>(null) }
     var showOfficeSettlementDialog by remember { mutableStateOf(false) }
 
-    // Calculate Financial Summary Statistics
-    val totalReceived = orders.sumOf { it.order.paidAmount }
+    // Calculate Financial Summary Statistics based strictly on today's active cycle
+    val totalReceived = settledTodayOrders.sumOf { it.order.paidAmount }
 
-    val pendingCollection = orders.filter {
-        it.order.status != "DELIVERED_SETTLED" && it.order.status != "OFFICE_SETTLED"
-    }.sumOf { maxOf(0L, (it.order.totalAmount - it.order.discountAmount - it.order.paidAmount)) }
+    val pendingCollection = pendingDeliveryOrders.sumOf { maxOf(0L, (it.order.totalAmount - it.order.discountAmount - it.order.paidAmount)) }
 
-    val cashReceived = orders.filter {
+    val cashReceived = settledTodayOrders.filter {
         it.order.paidAmount > 0 && (it.order.paymentMethod.contains("CASH", ignoreCase = true) || it.order.paymentMethod.contains("نقدی") || it.order.paymentMethod.contains("نقد"))
     }.sumOf { it.order.paidAmount }
 
@@ -78,6 +80,20 @@ fun DeliverySettlementScreen(
                     onPrintReceipt(order, method)
                 }
                 selectedOrderForSettlement = null
+            }
+        )
+    }
+
+    if (orderForCleanWarehouseReturn != null) {
+        val target = orderForCleanWarehouseReturn!!
+        ReturnToCleanWarehouseDialog(
+            orderId = target.order.id,
+            customerName = target.order.customerName,
+            currentRackCode = target.order.rackCode,
+            onDismiss = { orderForCleanWarehouseReturn = null },
+            onConfirm = { cleanRackCode, reason ->
+                onReturnToCleanWarehouse(target.order.id, cleanRackCode, reason)
+                orderForCleanWarehouseReturn = null
             }
         )
     }
@@ -395,7 +411,8 @@ fun DeliverySettlementScreen(
                             onNavigateNeshan = { NavigationUtils.launchNeshan(context, item.order.latitude, item.order.longitude, item.order.address) },
                             onNavigateBalad = { NavigationUtils.launchBalad(context, item.order.latitude, item.order.longitude, item.order.address) },
                             onSettleClick = { selectedOrderForSettlement = item },
-                            onOpenScanVerification = { onOpenScanner(item.order.id) }
+                            onOpenScanVerification = { onOpenScanner(item.order.id) },
+                            onReturnToCleanWarehouseClick = { orderForCleanWarehouseReturn = item }
                         )
                     }
                 }
@@ -452,7 +469,8 @@ fun DeliveryOrderCard(
     onNavigateNeshan: () -> Unit,
     onNavigateBalad: () -> Unit,
     onSettleClick: () -> Unit,
-    onOpenScanVerification: () -> Unit = {}
+    onOpenScanVerification: () -> Unit = {},
+    onReturnToCleanWarehouseClick: () -> Unit = {}
 ) {
     val order = orderWithItems.order
     val isSettled = order.status == "DELIVERED_SETTLED"
@@ -580,53 +598,110 @@ fun DeliveryOrderCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    IconButton(onClick = onCall, modifier = Modifier.size(38.dp)) {
-                        Icon(Icons.Default.Phone, contentDescription = "تماس", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    FilledTonalButton(
-                        onClick = onNavigateNeshan,
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("نشان", fontSize = 11.sp)
-                    }
+                // 1. Phone Call
+                IconButton(
+                    onClick = onCall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CleanBlueContainer)
+                ) {
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = "تماس با مشتری",
+                        tint = CleanBluePrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
 
-                    // Barcode scan verification button before delivery
-                    IconButton(
-                        onClick = onOpenScanVerification,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(CleanBlueContainer)
-                    ) {
-                        Icon(
-                            Icons.Default.QrCodeScanner,
-                            contentDescription = "اسکن تطبیق تحویل",
-                            tint = CleanBluePrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                // 2. Navigation
+                IconButton(
+                    onClick = onNavigateNeshan,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFDCFCE7))
+                ) {
+                    Icon(
+                        Icons.Default.Navigation,
+                        contentDescription = "مسیریابی نشان",
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // 3. Scan Verification
+                IconButton(
+                    onClick = onOpenScanVerification,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CleanPurpleContainer)
+                ) {
+                    Icon(
+                        Icons.Default.QrCodeScanner,
+                        contentDescription = "اسکن تطبیق تحویل",
+                        tint = CleanPurpleAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
                 if (!isSettled) {
-                    Button(
-                        onClick = onSettleClick,
-                        shape = RoundedCornerShape(10.dp)
+                    // 4. Return to Clean Warehouse (Customer Absent)
+                    IconButton(
+                        onClick = onReturnToCleanWarehouseClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CleanPurpleContainer)
                     ) {
-                        Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("تسویه و تحویل", fontSize = 12.sp)
+                        Icon(
+                            Icons.Default.Warehouse,
+                            contentDescription = "عدم حضور مشتری / برگشت به انبار",
+                            tint = CleanPurpleAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // 5. Settle Payment
+                    IconButton(
+                        onClick = onSettleClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CleanBluePrimary)
+                    ) {
+                        Icon(
+                            Icons.Default.Payment,
+                            contentDescription = "تسویه و تحویل",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 } else {
-                    OutlinedButton(
+                    // View Receipt
+                    IconButton(
                         onClick = onSettleClick,
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier
+                            .weight(1.5f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Text("مشاهده رسید تسویه", fontSize = 12.sp)
+                        Icon(
+                            Icons.Default.Receipt,
+                            contentDescription = "مشاهده رسید تسویه",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

@@ -236,6 +236,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun returnToCleanWarehouse(orderId: String, rackCode: String, reason: String) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            try {
+                repository.updateRackAssignment(orderId, rackCode)
+                repository.updateOrderStatus(orderId, "RETURNED_TO_CLEAN_WAREHOUSE")
+                val isSynced = repository.syncWithWebPanel()
+                _isSyncing.value = false
+                _syncToastMessage.value = "سفارش $orderId به قفسه تمیز انبار ($rackCode) بازگردانده شد و جهت برنامه‌ریزی مجدد به پنل ارسال گردید."
+            } catch (e: Exception) {
+                _isSyncing.value = false
+                _syncToastMessage.value = "خطا در ثبت برگشت به انبار: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
+            }
+        }
+    }
+
     fun settlePayment(
         orderId: String,
         paidAmount: Long,

@@ -304,6 +304,9 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                         },
                         onOpenScanner = { orderId ->
                             viewModel.openScanner(com.example.data.model.ScanStage.DELIVERY, orderId)
+                        },
+                        onReturnToCleanWarehouse = { orderId, cleanRack, reason ->
+                            viewModel.returnToCleanWarehouse(orderId, cleanRack, reason)
                         }
                     )
                     1 -> CollectionRouteScreen(
@@ -338,6 +341,9 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                         },
                         onSettleWithOffice = {
                             viewModel.settleWithOffice()
+                        },
+                        onReturnToCleanWarehouse = { orderId, cleanRack, reason ->
+                            viewModel.returnToCleanWarehouse(orderId, cleanRack, reason)
                         }
                     )
                     4 -> DispatchChatScreen(
