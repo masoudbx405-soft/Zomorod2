@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import kotlinx.coroutines.launch
 import com.example.data.local.model.OrderWithItems
 import com.example.ui.components.BarcodeScannerModal
 import com.example.ui.components.PrinterDeviceDialog
@@ -31,6 +34,7 @@ import com.example.utils.FarsiUtils
 @Composable
 fun MainDriverScreen(viewModel: DriverViewModel) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val orders by viewModel.ordersList.collectAsState()
     val selectedOrder by viewModel.selectedOrder.collectAsState()
@@ -116,50 +120,80 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
         Scaffold(
             topBar = {
                 Surface(
-                    shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+                    shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 2.dp
+                    tonalElevation = 3.dp,
+                    shadowElevation = 3.dp
                 ) {
                     TopAppBar(
+                        navigationIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(CleanBluePrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "زمرد",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        },
                         title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            val currentScreenTitle = when (activeTab) {
+                                0 -> "مسیر تحویل مشتریان"
+                                1 -> "جمع‌آوری و ثبت فاکتور"
+                                2 -> "تحویل به انبار قالیشویی"
+                                3 -> "تسویه حساب و فاکتورها"
+                                4 -> "پشتیبانی و چت دیسپچ"
+                                5 -> "موقعیت مکانی GPS"
+                                6 -> "تنظیمات نرم‌افزار"
+                                99 -> "صدور پیش‌فاکتور دریافت"
+                                else -> "قالیشویی زمرد"
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(CleanBluePrimary),
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(CleanBluePrimary.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "ع",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
+                                    Icon(
+                                        when (activeTab) {
+                                            0 -> Icons.Default.LocalShipping
+                                            1 -> Icons.Default.EditNote
+                                            2 -> Icons.Default.Warehouse
+                                            3 -> Icons.Default.CheckCircle
+                                            4 -> Icons.Default.Chat
+                                            5 -> Icons.Default.GpsFixed
+                                            6 -> Icons.Default.Settings
+                                            else -> Icons.Default.LocalShipping
+                                        },
+                                        contentDescription = null,
+                                        tint = CleanBluePrimary,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = "علی‌اکبر خسروی",
+                                        text = currentScreenTitle,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(CleanTealAccent)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "راننده فعال • کد ۴۰۸",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    Text(
+                                        text = "قالیشویی زمرد • سامانه سفیران",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         },
@@ -168,27 +202,27 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(CleanBlueContainer)
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    .background(CleanTealContainer)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .size(7.dp)
+                                            .size(6.dp)
                                             .clip(CircleShape)
                                             .background(CleanTealAccent)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "مسیریابی",
+                                        text = "آنلاین",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CleanBluePrimary
+                                        color = CleanTealAccent
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
 
                             // Barcode/QR Scanner button
                             IconButton(onClick = { viewModel.openScanner(com.example.data.model.ScanStage.DELIVERY) }) {
@@ -199,44 +233,12 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                                 )
                             }
 
-                            // Bluetooth printer status badge
-                            IconButton(onClick = {
-                                viewModel.scanBluetoothPrinters(context)
-                                showPrinterDialog = true
-                            }) {
-                                BadgedBox(
-                                    badge = {
-                                        if (connectedPrinter != null) {
-                                            Badge(containerColor = CleanTealAccent)
-                                        }
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Print, contentDescription = "پرینتر حرارتی")
-                                }
-                            }
-
-                            // Sync button
-                            IconButton(onClick = { viewModel.syncWithWebPanel() }) {
-                                BadgedBox(
-                                    badge = {
-                                        if (unsyncedCount > 0) {
-                                            Badge { Text(unsyncedCount.toString()) }
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        Icons.Default.Sync,
-                                        contentDescription = "همگام‌سازی",
-                                        tint = if (isSyncing) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                                    )
-                                }
-                            }
-
-                            // Theme switch
-                            IconButton(onClick = { viewModel.toggleDarkMode() }) {
+                            // Quick Settings Button
+                            IconButton(onClick = { viewModel.setActiveTab(6) }) {
                                 Icon(
-                                    if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                                    contentDescription = "تغییر پوسته"
+                                    Icons.Default.Settings,
+                                    contentDescription = "تنظیمات برنامه",
+                                    tint = CleanBluePrimary
                                 )
                             }
                         },
@@ -248,7 +250,7 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
             },
             bottomBar = {
                 Surface(
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
                     shadowElevation = 8.dp
@@ -256,35 +258,35 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                     NavigationBar(
                         containerColor = Color.Transparent
                     ) {
+                        // 1. جمع‌آوری
                         NavigationBarItem(
-                            selected = activeTab == 0,
-                            onClick = { viewModel.setActiveTab(0) },
-                            icon = { Icon(Icons.Default.LocalShipping, contentDescription = null) },
-                            label = { Text("تحویل", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                        )
-                        NavigationBarItem(
-                            selected = activeTab == 1,
+                            selected = activeTab == 1 || activeTab == 99,
                             onClick = { viewModel.setActiveTab(1) },
-                            icon = { Icon(Icons.Default.EditNote, contentDescription = null) },
-                            label = { Text("جمع‌آوری", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            icon = { Icon(Icons.Default.EditNote, contentDescription = "جمع‌آوری") }
                         )
+                        // 2. انبار
                         NavigationBarItem(
                             selected = activeTab == 2,
                             onClick = { viewModel.setActiveTab(2) },
-                            icon = { Icon(Icons.Default.Warehouse, contentDescription = null) },
-                            label = { Text("تحویل انبار", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            icon = { Icon(Icons.Default.Warehouse, contentDescription = "انبار") }
                         )
+                        // 3. تحویل
+                        NavigationBarItem(
+                            selected = activeTab == 0,
+                            onClick = { viewModel.setActiveTab(0) },
+                            icon = { Icon(Icons.Default.LocalShipping, contentDescription = "تحویل") }
+                        )
+                        // 4. تسویه
                         NavigationBarItem(
                             selected = activeTab == 3,
                             onClick = { viewModel.setActiveTab(3) },
-                            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
-                            label = { Text("تسویه", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            icon = { Icon(Icons.Default.CheckCircle, contentDescription = "تسویه") }
                         )
+                        // 5. چت پشتیبانی
                         NavigationBarItem(
                             selected = activeTab == 4,
                             onClick = { viewModel.setActiveTab(4) },
-                            icon = { Icon(Icons.Default.Chat, contentDescription = null) },
-                            label = { Text("پشتیبانی", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            icon = { Icon(Icons.Default.Chat, contentDescription = "پشتیبانی") }
                         )
                     }
                 }
@@ -356,6 +358,16 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                         isSyncing = isSyncing,
                         recentGpsLogs = recentGpsLogs,
                         onToggleGps = { viewModel.toggleGpsTracking() },
+                        onSyncNow = { viewModel.syncWithWebPanel() }
+                    )
+                    6 -> SettingsScreen(
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = { viewModel.toggleDarkMode() },
+                        connectedPrinterName = connectedPrinter?.name,
+                        onOpenPrinterDialog = {
+                            viewModel.scanBluetoothPrinters(context)
+                            showPrinterDialog = true
+                        },
                         onSyncNow = { viewModel.syncWithWebPanel() }
                     )
                     99 -> CarpetRegistrationScreen(

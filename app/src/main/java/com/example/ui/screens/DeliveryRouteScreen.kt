@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
 import com.example.data.model.ScanStage
 import com.example.ui.components.BarcodeScannerModal
-import com.example.ui.components.BarcodeView
 import com.example.ui.theme.*
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
@@ -141,68 +140,7 @@ fun DeliveryRouteScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
-        // Header Banner: Neshan Delivery Map & Warehouse Loading
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = CleanBlueContainer),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = CleanBluePrimary,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.PinDrop,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "نقشه نشان و مسیرهای تحویل پنل وب",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = CleanBluePrimary
-                        )
-                        Text(
-                            text = "پین خودکار آدرس‌ها جهت بارگیری از قفسه و تحویل",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = CleanBluePrimary.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = "${FarsiUtils.toFarsiDigits(readyCount.toString())} آماده تحویل",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = CleanBluePrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
-        // Section 1: Neshan Map View with Pins
+        // Section 1: Interactive Neshan Map View synchronized with Neshan API key
         NeshanDeliveryMapView(
             orders = deliveryOrders,
             selectedOrder = selectedOrderForMap,
@@ -365,8 +303,8 @@ private fun NeshanDeliveryMapView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF212121))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .background(Color(0xFF1E293B))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -375,37 +313,53 @@ private fun NeshanDeliveryMapView(
                         Icons.Default.Map,
                         contentDescription = null,
                         tint = Color(0xFF22C55E), // Neshan Green Accent
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "نقشه همراه نشان (مسیر پین شده تحویل)",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "نقشه کلی مسیریابی تحویل و بارگیری",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "متصل به API سرویس نشان",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = Color(0xFF22C55E),
                     modifier = Modifier.clickable { onLaunchAllRoute() }
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             Icons.Default.Navigation,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "مسیریابی کل در نشان",
                             color = Color.White,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -775,16 +729,6 @@ private fun DeliveryReadyCard(
                                     )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            // Mini Barcode preview for each stapled carpet
-                            BarcodeView(
-                                code = stapleTag,
-                                height = 28.dp,
-                                showText = false,
-                                modifier = Modifier.fillMaxWidth(0.6f)
-                            )
                         }
                     }
                 }

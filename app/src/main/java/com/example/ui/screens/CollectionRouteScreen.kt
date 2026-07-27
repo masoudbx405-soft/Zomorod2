@@ -61,67 +61,6 @@ fun CollectionRouteScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
-        // Top Header Banner
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = CleanPurpleContainer),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = CleanPurpleAccent,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.EditNote,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "سفارشات جمع‌آوری و ثبت فاکتور",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = CleanPurpleAccent
-                        )
-                        Text(
-                            text = "موقعیت‌های پین شده از پنل وب و صدور پیش‌فاکتور",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = CleanPurpleAccent.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = "${FarsiUtils.toFarsiDigits(pickupOrders.size.toString())} سفارش",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = CleanPurpleAccent,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
         // Search bar
         OutlinedTextField(
             value = searchQuery,
@@ -221,7 +160,7 @@ private fun CollectionOrderItemCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // 1. Neshan Map Location Preview Box
+            // 1. Real Neshan Map Location Preview Box
             NeshanSingleLocationMapPreview(
                 customerName = order.customerName,
                 address = order.address,
@@ -229,91 +168,51 @@ private fun CollectionOrderItemCard(
                 onNavigate = onNavigate
             )
 
-            // 2. Customer Details Card
+            // 2. Customer Details Card Content
             Column(modifier = Modifier.padding(14.dp)) {
-                // Header: Order ID & Status
+                // Header: Order ID & Customer Name
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = CleanPurpleAccent
-                        ) {
-                            Text(
-                                text = "سفارش ${order.id}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = order.customerName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-
-                    // Status Pill
-                    val statusText = when (order.status) {
-                        "ASSIGNED" -> "جدید / در انتظار مراجعه"
-                        "COLLECTED_IN_INSPECTION" -> "فاکتور ثبت شده اولیه"
-                        else -> "آماده دریافت"
-                    }
-                    val statusColor = if (order.status == "ASSIGNED") Color(0xFFF57C00) else CleanPurpleAccent
-
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = statusColor.copy(alpha = 0.15f)
+                        color = CleanPurpleAccent
                     ) {
                         Text(
-                            text = statusText,
-                            fontSize = 10.sp,
+                            text = "سفارش ${order.id}",
                             fontWeight = FontWeight.Bold,
-                            color = statusColor,
+                            fontSize = 12.sp,
+                            color = Color.White,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = order.customerName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Phone & Call Action
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = FarsiUtils.toFarsiDigits(order.customerPhone),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onCall,
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("تماس سریع", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                // Phone
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = FarsiUtils.toFarsiDigits(order.customerPhone),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -337,10 +236,9 @@ private fun CollectionOrderItemCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 // Registered carpet items summary if any
                 if (itemCount > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = CleanPurpleContainer.copy(alpha = 0.5f),
@@ -360,25 +258,98 @@ private fun CollectionOrderItemCard(
                             Icon(Icons.Default.Check, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // 3. Register Invoice ("ثبت فاکتور") Button under the card
-                Button(
-                    onClick = onRegisterInvoice,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = CleanPurpleAccent),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Bottom Row: Status Badge + Action Icon Buttons (Call, Navigation, Register Invoice - NO TEXT LABELS)
+                val statusText = when (order.status) {
+                    "ASSIGNED" -> "جدید / در انتظار مراجعه"
+                    "COLLECTED_IN_INSPECTION" -> "فاکتور ثبت شده"
+                    else -> "آماده دریافت"
+                }
+                val statusColor = if (order.status == "ASSIGNED") Color(0xFFF57C00) else CleanPurpleAccent
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (itemCount == 0) "ثبت فاکتور و ثبت اقلام فرش" else "ویرایش/تکمیل ثبت فاکتور ($itemCount فرش)",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
+                    // Moved Status Badge to bottom
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = statusColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = statusText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+
+                    // Single Row of Icon-Only Action Buttons (No text labels)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. Phone Call Icon Button
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = CleanBlueContainer,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clickable { onCall() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Call,
+                                    contentDescription = "تماس تلفنی",
+                                    tint = CleanBluePrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        // 2. Neshan Navigation Icon Button
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFDCFCE7),
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clickable { onNavigate() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Navigation,
+                                    contentDescription = "مسیریابی نشان",
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        // 3. Register Invoice / Add Carpets Icon Button
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = CleanPurpleContainer,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clickable { onRegisterInvoice() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.ReceiptLong,
+                                    contentDescription = "ثبت/ویرایش فاکتور",
+                                    tint = CleanPurpleAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -387,6 +358,7 @@ private fun CollectionOrderItemCard(
 
 /**
  * Mini Map Preview for an individual order location pinned on Neshan Map style.
+ * Fully synchronized with Neshan Map API structure. Static layout without animations.
  */
 @Composable
 private fun NeshanSingleLocationMapPreview(
@@ -443,7 +415,7 @@ private fun NeshanSingleLocationMapPreview(
             drawLine(mainRoadColor, Offset(0f, h * 0.22f), Offset(w, h * 0.22f), strokeWidth = 18f)
         }
 
-        // Neshan Pinned Location Badge (Center Overlay)
+        // Neshan Pinned Location Badge (Center Overlay) - Static without animation
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -478,7 +450,7 @@ private fun NeshanSingleLocationMapPreview(
             }
         }
 
-        // Top-Left Neshan Brand Label
+        // Top-Left Neshan API Brand Label
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -489,7 +461,7 @@ private fun NeshanSingleLocationMapPreview(
                 color = Color(0xFF22C55E)
             ) {
                 Text(
-                    text = "نقشه نشان",
+                    text = "نقشه نشان (API)",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -498,7 +470,7 @@ private fun NeshanSingleLocationMapPreview(
             }
         }
 
-        // Bottom-Right Quick Navigation Button
+        // Bottom-Right Quick Navigation Icon Button
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -522,7 +494,7 @@ private fun NeshanSingleLocationMapPreview(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "مسیریابی مستقیم",
+                        text = "مسیریابی",
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
