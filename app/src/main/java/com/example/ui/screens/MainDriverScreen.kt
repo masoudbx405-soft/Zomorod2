@@ -36,6 +36,12 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val otpSent by viewModel.otpSent.collectAsState()
+    val authLoading by viewModel.authLoading.collectAsState()
+    val authError by viewModel.authError.collectAsState()
+    val generatedOtp by viewModel.generatedOtp.collectAsState()
+
     val orders by viewModel.ordersList.collectAsState()
     val selectedOrder by viewModel.selectedOrder.collectAsState()
     val activeTab by viewModel.activeTab.collectAsState()
@@ -117,32 +123,43 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     }
 
     ZomorrodDriverTheme(darkTheme = isDarkMode) {
-        Scaffold(
-            topBar = {
-                Surface(
-                    shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 3.dp
-                ) {
-                    TopAppBar(
-                        navigationIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(CleanBluePrimary),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "زمرد",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        },
+        if (!isLoggedIn) {
+            DriverLoginScreen(
+                onSendOtp = { phone -> viewModel.requestOtp(phone) },
+                onVerifyOtp = { phone, code -> viewModel.verifyOtp(phone, code) },
+                onResetOtp = { viewModel.resetOtpState() },
+                otpSent = otpSent,
+                isLoading = authLoading,
+                errorMessage = authError,
+                generatedOtpCode = generatedOtp
+            )
+        } else {
+            Scaffold(
+                topBar = {
+                    Surface(
+                        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 3.dp,
+                        shadowElevation = 3.dp
+                    ) {
+                        TopAppBar(
+                            navigationIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 10.dp)
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(CleanBlueContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Diamond,
+                                        contentDescription = "الماس زمرد",
+                                        tint = CleanBluePrimary,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                            },
                         title = {
                             val currentScreenTitle = when (activeTab) {
                                 0 -> "مسیر تحویل مشتریان"
@@ -368,7 +385,8 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                             viewModel.scanBluetoothPrinters(context)
                             showPrinterDialog = true
                         },
-                        onSyncNow = { viewModel.syncWithWebPanel() }
+                        onSyncNow = { viewModel.syncWithWebPanel() },
+                        onLogout = { viewModel.logoutDriver() }
                     )
                     99 -> CarpetRegistrationScreen(
                         orderWithItems = selectedOrder,
@@ -400,3 +418,5 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
         }
     }
 }
+}
+

@@ -19,6 +19,25 @@ import kotlinx.coroutines.launch
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ZomorrodRepository
+    private val prefs = application.getSharedPreferences("zomorrod_driver_prefs", Context.MODE_PRIVATE)
+
+    private val _isLoggedIn = MutableStateFlow(prefs.getBoolean("is_logged_in", false))
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
+
+    private val _savedDriverPhone = MutableStateFlow(prefs.getString("driver_phone", "09123456789") ?: "09123456789")
+    val savedDriverPhone: StateFlow<String> = _savedDriverPhone
+
+    private val _otpSent = MutableStateFlow(false)
+    val otpSent: StateFlow<Boolean> = _otpSent
+
+    private val _authLoading = MutableStateFlow(false)
+    val authLoading: StateFlow<Boolean> = _authLoading
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError
+
+    private val _generatedOtp = MutableStateFlow("1234")
+    val generatedOtp: StateFlow<String> = _generatedOtp
 
     init {
         val db = ZomorrodDatabase.getDatabase(application)
@@ -26,6 +45,52 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
         }
+    }
+
+    fun requestOtp(phone: String) {
+        if (phone.length < 11 || !phone.startsWith("09")) {
+            _authError.value = "لطفاً شماره همراه معتبر ۱۱ رقمی (مانند ۰۹۱۲۳۴۵۶۷۸۹) وارد کنید."
+            return
+        }
+        viewModelScope.launch {
+            _authLoading.value = true
+            _authError.value = null
+            delay(1000)
+            _authLoading.value = false
+            _otpSent.value = true
+            _generatedOtp.value = "1234"
+            _syncToastMessage.value = "شماره راننده در پنل تایید شد. کد تایید ورود: ۱۲۳۴"
+        }
+    }
+
+    fun verifyOtp(phone: String, code: String) {
+        if (code != _generatedOtp.value && code != "1234") {
+            _authError.value = "کد تایید وارد شده اشتباه است."
+            return
+        }
+        viewModelScope.launch {
+            _authLoading.value = true
+            delay(800)
+            _authLoading.value = false
+            prefs.edit().putBoolean("is_logged_in", true).putString("driver_phone", phone).apply()
+            _savedDriverPhone.value = phone
+            _isLoggedIn.value = true
+            _otpSent.value = false
+            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز به اپلیکیشن راننده زمرد"
+        }
+    }
+
+    fun resetOtpState() {
+        _otpSent.value = false
+        _authError.value = null
+    }
+
+    fun logoutDriver() {
+        prefs.edit().putBoolean("is_logged_in", false).apply()
+        _isLoggedIn.value = false
+        _otpSent.value = false
+        _authError.value = null
+        _syncToastMessage.value = "از حساب کاربری راننده خارج شدید."
     }
 
     val ordersList: StateFlow<List<OrderWithItems>> = repository.allOrders

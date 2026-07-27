@@ -26,6 +26,7 @@ import com.example.ui.theme.CleanBlueContainer
 import com.example.ui.theme.CleanBluePrimary
 import com.example.ui.theme.CleanPurpleAccent
 import com.example.ui.theme.CleanPurpleContainer
+import com.example.ui.theme.CleanRedAccent
 import com.example.ui.theme.CleanTealAccent
 import com.example.ui.theme.CleanTealContainer
 
@@ -36,7 +37,8 @@ fun SettingsScreen(
     onToggleDarkMode: () -> Unit,
     connectedPrinterName: String?,
     onOpenPrinterDialog: () -> Unit,
-    onSyncNow: () -> Unit
+    onSyncNow: () -> Unit,
+    onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -409,6 +411,21 @@ fun SettingsScreen(
             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("ذخیره تمام تغییرات تنظیمات", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // Logout Button Card
+        OutlinedButton(
+            onClick = onLogout,
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, CleanRedAccent),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = CleanRedAccent),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("خروج از حساب کاربری راننده", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
