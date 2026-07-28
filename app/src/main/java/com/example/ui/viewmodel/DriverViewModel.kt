@@ -21,7 +21,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val repository: ZomorrodRepository
     private val prefs = application.getSharedPreferences("zomorrod_driver_prefs", Context.MODE_PRIVATE)
 
-    private val _isLoggedIn = MutableStateFlow(prefs.getBoolean("is_logged_in", false))
+    private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
     private val _savedDriverPhone = MutableStateFlow(prefs.getString("driver_phone", "09123456789") ?: "09123456789")

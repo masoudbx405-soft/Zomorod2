@@ -51,6 +51,7 @@ fun DriverLoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -74,13 +75,13 @@ fun DriverLoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.zomorrod_logo),
-                        contentDescription = "لوگو قالیشویی زمرد",
+                        painter = painterResource(id = R.drawable.zomorrod_banner),
+                        contentDescription = "تصویر لوگو و نشان قالیشویی زمرد",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(200.dp)
                             .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.FillWidth
                     )
                 }
             }
