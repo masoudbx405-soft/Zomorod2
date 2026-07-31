@@ -30,11 +30,14 @@ jobs:
           fi
 
       - name: Build Debug APK
+        env:
+          JAVA_OPTS: "-Djava.awt.headless=true"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Djava.awt.headless=true"
         run: |
           if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug --no-daemon --stacktrace
           else
-            gradle assembleDebug --stacktrace
+            gradle assembleDebug --no-daemon --stacktrace
           fi
 
       - name: Upload Debug APK Artifact
