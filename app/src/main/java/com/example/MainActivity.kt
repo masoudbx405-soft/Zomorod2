@@ -30,27 +30,40 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Create notification channel
-        ZomorrodNotificationManager.createNotificationChannel(this)
+        // Create notification channel safely
+        try {
+            ZomorrodNotificationManager.createNotificationChannel(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // Request POST_NOTIFICATIONS permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            try {
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
-        // Hide Status Bar for immersive full-screen experience
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.statusBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-
         setContent {
+            // Safely set status bar behavior inside composable context after window view is attached
+            androidx.compose.runtime.SideEffect {
+                try {
+                    WindowCompat.getInsetsController(window, window.decorView).apply {
+                        hide(WindowInsetsCompat.Type.statusBars())
+                        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
             MainDriverScreen(viewModel = driverViewModel)
         }
     }

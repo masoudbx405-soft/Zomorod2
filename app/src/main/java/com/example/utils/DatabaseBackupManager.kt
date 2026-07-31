@@ -30,7 +30,8 @@ object DatabaseBackupManager {
     private const val DB_BAK_FILE_NAME = "zomorrod_driver_db.bak"
 
     private fun getBackupDir(context: Context): File {
-        val dir = File(context.getExternalFilesDir(null), "backups")
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val dir = File(baseDir, "backups")
         if (!dir.exists()) {
             dir.mkdirs()
         }

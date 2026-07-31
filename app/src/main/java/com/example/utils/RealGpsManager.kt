@@ -15,8 +15,13 @@ import kotlinx.coroutines.launch
 
 class RealGpsManager(private val context: Context) {
 
-    private val locationManager: LocationManager =
-        context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val locationManager: LocationManager? by lazy {
+        try {
+            context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     private val _currentLocation = MutableStateFlow<Location?>(null)
     val currentLocation: StateFlow<Location?> = _currentLocation
@@ -46,8 +51,9 @@ class RealGpsManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun startTracking(): Boolean {
         try {
-            val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-            val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            val lm = locationManager ?: return false
+            val isGpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
             if (!isGpsEnabled && !isNetworkEnabled) {
                 _isGpsActive.value = false
@@ -55,7 +61,7 @@ class RealGpsManager(private val context: Context) {
             }
 
             if (isGpsEnabled) {
-                locationManager.requestLocationUpdates(
+                lm.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
                     5000L, // 5 seconds interval for real updates
                     5f,   // 5 meters min distance
@@ -64,7 +70,7 @@ class RealGpsManager(private val context: Context) {
             }
 
             if (isNetworkEnabled) {
-                locationManager.requestLocationUpdates(
+                lm.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
                     5000L,
                     5f,
@@ -73,8 +79,8 @@ class RealGpsManager(private val context: Context) {
             }
 
             // Get last known location immediately
-            val lastGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            val lastNetwork = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            val lastGps = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            val lastNetwork = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
             val bestLocation = lastGps ?: lastNetwork
             if (bestLocation != null) {
                 _currentLocation.value = bestLocation
@@ -97,7 +103,7 @@ class RealGpsManager(private val context: Context) {
 
     fun stopTracking() {
         try {
-            locationManager.removeUpdates(locationListener)
+            locationManager?.removeUpdates(locationListener)
         } catch (e: Exception) {
             Log.e("RealGpsManager", "Error stopping location tracking: ${e.message}")
         } finally {
