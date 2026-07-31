@@ -38,11 +38,23 @@ fun SettingsScreen(
     connectedPrinterName: String?,
     onOpenPrinterDialog: () -> Unit,
     onSyncNow: () -> Unit,
+    savedServerUrl: String = "https://panel.zomorrod-carpet.com/api/v1",
+    isTestingConnection: Boolean = false,
+    connectionTestResult: String? = null,
+    onUpdateServerUrl: (String) -> Unit = {},
+    onTestConnection: (String) -> Unit = {},
+    onTestNotification: () -> Unit = {},
+    onSimulateNewOrder: () -> Unit = {},
+    onSimulateStatusChange: () -> Unit = {},
+    backupInfo: com.example.utils.BackupInfo? = null,
+    onBackupDatabase: () -> Unit = {},
+    onRestoreDatabase: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
-    var serverUrl by remember { mutableStateOf("https://panel.zomorrod-carpet.com/api/v1") }
+    var serverUrl by remember(savedServerUrl) { mutableStateOf(savedServerUrl) }
+    var notificationsEnabled by remember { mutableStateOf(true) }
     var autoSyncEnabled by remember { mutableStateOf(true) }
     var autoSyncInterval by remember { mutableStateOf("۱۰ دقیقه") }
     var autoPrintReceipt by remember { mutableStateOf(true) }
@@ -50,8 +62,6 @@ fun SettingsScreen(
     var paperWidth by remember { mutableStateOf("۸۰ میلی‌متر (پوز/حرارتی)") }
     var preferredMapApp by remember { mutableStateOf("مسیریاب نشان") }
     var scanSoundBeep by remember { mutableStateOf(true) }
-    var driverCodeInput by remember { mutableStateOf("۴۰۸") }
-    var vehiclePlaqueInput by remember { mutableStateOf("ایران ۴۴ - ۱۲۳ ج ۷۷") }
 
     Column(
         modifier = Modifier
@@ -95,31 +105,75 @@ fun SettingsScreen(
             }
         }
 
-        // Driver & Vehicle Information Card
+        // Room Database Backup & Restore Card
         SettingsSectionCard(
-            title = "مشخصات راننده و خودرو",
-            icon = Icons.Default.Badge
+            title = "پشتیبان‌گیری و بازیابی دیتابیس محلی (Room)",
+            icon = Icons.Default.Backup
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = driverCodeInput,
-                    onValueChange = { driverCodeInput = it },
-                    label = { Text("کد شناسه راننده / سفیر", fontSize = 11.sp) },
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "در صورت تعویض گوشی یا بروز مشکل، می‌توانید از تمام اطلاعات آفلاین سفارشات، فاکتورها، چت‌ها و لوگ‌های GPS فایل پشتیبان تهیه کرده و آن را بازیابی نمایید.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
                 )
 
-                OutlinedTextField(
-                    value = vehiclePlaqueInput,
-                    onValueChange = { vehiclePlaqueInput = it },
-                    label = { Text("شماره پلاک و مدل خودرو", fontSize = 11.sp) },
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(12.dp),
+                if (backupInfo != null && backupInfo.exists) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.TaskAlt, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("آخرین نسخه پشتیبان موجود در حافظه:", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text("تاریخ ثبت: ${backupInfo.timestamp}", fontSize = 11.sp)
+                            Text("حجم فایل: ${backupInfo.fileSizeKb} کیلوبایت (${backupInfo.ordersCount} سفارش)", fontSize = 11.sp)
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("هنوز فایل پشتیبانی در دستگاه ایجاد نشده است.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    Button(
+                        onClick = onBackupDatabase,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("ایجاد پشتیبان جدید", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onRestoreDatabase,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("بازیابی اطلاعات", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
@@ -131,13 +185,67 @@ fun SettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = serverUrl,
-                    onValueChange = { serverUrl = it },
+                    onValueChange = {
+                        serverUrl = it
+                        onUpdateServerUrl(it)
+                    },
                     label = { Text("آدرس سرور API پنل مرکزی", fontSize = 11.sp) },
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Test Connection Button
+                OutlinedButton(
+                    onClick = { onTestConnection(serverUrl) },
+                    enabled = !isTestingConnection,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isTestingConnection) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("در حال بررسی اتصال به سرور...", fontSize = 12.sp)
+                    } else {
+                        Icon(Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("تست اتصال به سرور API", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (connectionTestResult != null) {
+                    val isSuccess = connectionTestResult.startsWith("موفقیت")
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSuccess) Color(0xFFDCFCE7) else Color(0xFFFFEBEE),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSuccess) Color(0xFF86EFAC) else Color(0xFFFFCDD2)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
+                                contentDescription = null,
+                                tint = if (isSuccess) Color(0xFF16A34A) else Color(0xFFD32F2F),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = connectionTestResult,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSuccess) Color(0xFF15803D) else Color(0xFFC62828),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -199,6 +307,81 @@ fun SettingsScreen(
                     Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("استعلام فوری و همگام‌سازی با پنل", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Local Notifications & Server Events Card
+        SettingsSectionCard(
+            title = "سیستم اعلان‌های محلی و تغییرات سرور",
+            icon = Icons.Default.NotificationsActive
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "اعلان اختصاص سفارش جدید و تغییر وضعیت",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "هشدار صوتی و بنر اعلان حتی زمان بسته‌بودن یا پس‌زمینه اپلیکیشن",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = notificationsEnabled,
+                        onCheckedChange = { notificationsEnabled = it }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                Text(
+                    text = "ابزار‌های عملیاتی و تست ارتباطات:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedButton(
+                    onClick = { onTestNotification() },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("ارسال اعلان تست دستگاه", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedButton(
+                        onClick = { onSimulateNewOrder() },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.AddAlert, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("دریافت سفارش واقعی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { onSimulateStatusChange() },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.PublishedWithChanges, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("بروزرسانی وضعیت سرور", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

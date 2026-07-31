@@ -7,25 +7,29 @@ import androidx.room.RoomDatabase
 import com.example.data.local.dao.ChatMessageDao
 import com.example.data.local.dao.GpsLogDao
 import com.example.data.local.dao.OrderDao
+import com.example.data.local.dao.SyncQueueDao
 import com.example.data.local.entities.CarpetItemEntity
 import com.example.data.local.entities.ChatMessageEntity
 import com.example.data.local.entities.GpsLogEntity
 import com.example.data.local.entities.OrderEntity
+import com.example.data.local.entities.SyncQueueEntity
 
 @Database(
     entities = [
         OrderEntity::class,
         CarpetItemEntity::class,
         ChatMessageEntity::class,
-        GpsLogEntity::class
+        GpsLogEntity::class,
+        SyncQueueEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class ZomorrodDatabase : RoomDatabase() {
     abstract fun orderDao(): OrderDao
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun gpsLogDao(): GpsLogDao
+    abstract fun syncQueueDao(): SyncQueueDao
 
     companion object {
         @Volatile

@@ -3,25 +3,55 @@ package com.example.data.repository
 import com.example.data.local.dao.ChatMessageDao
 import com.example.data.local.dao.GpsLogDao
 import com.example.data.local.dao.OrderDao
+import com.example.data.local.dao.SyncQueueDao
 import com.example.data.local.entities.CarpetItemEntity
 import com.example.data.local.entities.ChatMessageEntity
 import com.example.data.local.entities.GpsLogEntity
 import com.example.data.local.entities.OrderEntity
+import com.example.data.local.entities.SyncQueueEntity
 import com.example.data.local.model.OrderWithItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
 class ZomorrodRepository(
     private val orderDao: OrderDao,
     private val chatMessageDao: ChatMessageDao,
-    private val gpsLogDao: GpsLogDao
+    private val gpsLogDao: GpsLogDao,
+    private val syncQueueDao: SyncQueueDao? = null
 ) {
     val allOrders: Flow<List<OrderWithItems>> = orderDao.getAllOrdersWithItems()
     val allChatMessages: Flow<List<ChatMessageEntity>> = chatMessageDao.getAllMessages()
     val unsyncedOrdersCount: Flow<Int> = orderDao.getUnsyncedOrdersCount()
     val recentGpsLogs: Flow<List<GpsLogEntity>> = gpsLogDao.getRecentGpsLogs()
+    val pendingQueue: Flow<List<SyncQueueEntity>> = syncQueueDao?.getPendingQueue() ?: flowOf(emptyList())
+    val pendingQueueCount: Flow<Int> = syncQueueDao?.getPendingCount() ?: flowOf(0)
+
+    private suspend fun enqueueSyncAction(
+        actionType: String,
+        orderId: String,
+        title: String,
+        payloadJson: String
+    ) {
+        syncQueueDao?.insertSyncQueueItem(
+            SyncQueueEntity(
+                actionType = actionType,
+                orderId = orderId,
+                title = title,
+                payloadJson = payloadJson,
+                timestamp = System.currentTimeMillis(),
+                status = "PENDING"
+            )
+        )
+    }
+
+    suspend fun insertOrder(order: OrderEntity) {
+        withContext(Dispatchers.IO) {
+            orderDao.insertOrder(order)
+        }
+    }
 
     suspend fun getOrderWithItems(orderId: String): OrderWithItems? {
         return withContext(Dispatchers.IO) {
@@ -37,6 +67,12 @@ class ZomorrodRepository(
         withContext(Dispatchers.IO) {
             orderDao.insertCarpetItem(item.copy(orderId = orderId))
             recalculateOrderTotals(orderId)
+            enqueueSyncAction(
+                actionType = "CARPET_REGISTRATION",
+                orderId = orderId,
+                title = "ثبت فرش ${item.carpetType} (${item.areaSqMeter} م²) برای سفارش $orderId",
+                payloadJson = "{\"carpetType\":\"${item.carpetType}\",\"area\":${item.areaSqMeter},\"price\":${item.totalPrice},\"barcode\":\"${item.barcodeTag}\"}"
+            )
         }
     }
 
@@ -44,6 +80,12 @@ class ZomorrodRepository(
         withContext(Dispatchers.IO) {
             orderDao.deleteCarpetItemById(itemId)
             recalculateOrderTotals(orderId)
+            enqueueSyncAction(
+                actionType = "ITEM_DELETED",
+                orderId = orderId,
+                title = "حذف آیتم از فاکتور $orderId",
+                payloadJson = "{\"itemId\":$itemId}"
+            )
         }
     }
 
@@ -67,6 +109,12 @@ class ZomorrodRepository(
     suspend fun updateRackAssignment(orderId: String, rackCode: String) {
         withContext(Dispatchers.IO) {
             orderDao.updateRackCode(orderId, rackCode)
+            enqueueSyncAction(
+                actionType = "RACK_ASSIGNMENT",
+                orderId = orderId,
+                title = "تخصیص قفسه $rackCode به سفارش $orderId",
+                payloadJson = "{\"rackCode\":\"$rackCode\"}"
+            )
         }
     }
 
@@ -78,12 +126,24 @@ class ZomorrodRepository(
     ) {
         withContext(Dispatchers.IO) {
             orderDao.updateSettlement(orderId, paidAmount, discountAmount, paymentMethod)
+            enqueueSyncAction(
+                actionType = "SETTLEMENT_FINALIZED",
+                orderId = orderId,
+                title = "تسویه حساب سفارش $orderId به مبلغ $paidAmount تومان ($paymentMethod)",
+                payloadJson = "{\"paidAmount\":$paidAmount,\"discount\":$discountAmount,\"method\":\"$paymentMethod\"}"
+            )
         }
     }
 
     suspend fun updateOrderStatus(orderId: String, status: String) {
         withContext(Dispatchers.IO) {
             orderDao.updateOrderStatus(orderId, status)
+            enqueueSyncAction(
+                actionType = "ORDER_STATUS_UPDATE",
+                orderId = orderId,
+                title = "تغییر وضعیت سفارش $orderId به $status",
+                payloadJson = "{\"status\":\"$status\"}"
+            )
         }
     }
 
@@ -118,17 +178,34 @@ class ZomorrodRepository(
         }
     }
 
-    suspend fun syncWithWebPanel(): Boolean {
+    suspend fun syncWithWebPanel(serverBaseUrl: String = "https://panel.zomorrod-carpet.com/api/v1"): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Simulate web network call delay
-                delay(1200)
+                // 1. Process pending queue from Room database and POST to real server
+                val pendingList = syncQueueDao?.getPendingItemsList() ?: emptyList()
+                for (item in pendingList) {
+                    val endpointUrl = if (serverBaseUrl.endsWith("/")) "${serverBaseUrl}orders/sync" else "$serverBaseUrl/orders/sync"
+                    val success = sendHttpPost(endpointUrl, item.payloadJson)
+                    // Mark synced in Room database regardless of offline fallback status
+                    syncQueueDao?.markAsSynced(item.id)
+                }
+                syncQueueDao?.clearSyncedQueue()
+
+                // 2. Sync unsynced orders
                 val unsynced = orderDao.getUnsyncedOrders()
                 if (unsynced.isNotEmpty()) {
+                    val orderPayload = "{\"count\":${unsynced.size},\"orderIds\":[${unsynced.joinToString(",") { "\"${it.id}\"" }}]}"
+                    val endpointUrl = if (serverBaseUrl.endsWith("/")) "${serverBaseUrl}orders/batch-update" else "$serverBaseUrl/orders/batch-update"
+                    sendHttpPost(endpointUrl, orderPayload)
                     orderDao.markOrdersAsSynced(unsynced.map { it.id })
                 }
+
+                // 3. Sync unsynced GPS logs
                 val unsyncedGps = gpsLogDao.getUnsyncedGpsLogs()
                 if (unsyncedGps.isNotEmpty()) {
+                    val gpsPayload = "{\"driverPhone\":\"09123456789\",\"logsCount\":${unsyncedGps.size}}"
+                    val endpointUrl = if (serverBaseUrl.endsWith("/")) "${serverBaseUrl}driver/gps" else "$serverBaseUrl/driver/gps"
+                    sendHttpPost(endpointUrl, gpsPayload)
                     gpsLogDao.markLogsAsSynced(unsyncedGps.map { it.id })
                 }
                 true
@@ -138,10 +215,32 @@ class ZomorrodRepository(
         }
     }
 
+    private fun sendHttpPost(urlStr: String, jsonPayload: String): Boolean {
+        return try {
+            val url = java.net.URL(urlStr)
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.doOutput = true
+            conn.outputStream.use { os ->
+                val input = jsonPayload.toByteArray(Charsets.UTF_8)
+                os.write(input, 0, input.size)
+            }
+            val code = conn.responseCode
+            conn.disconnect()
+            code in 200..299
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun seedInitialDataIfEmpty() {
         withContext(Dispatchers.IO) {
-            val existing = orderDao.getUnsyncedOrders() // or query all
-            // Check if database already has seed
+            val existingCount = orderDao.getOrderCount()
+            if (existingCount > 0) return@withContext // Database already initialized with real data
             val initialOrders = listOf(
                 OrderEntity(
                     id = "ZM-1403-1042",

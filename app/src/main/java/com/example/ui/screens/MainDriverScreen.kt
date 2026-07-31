@@ -26,6 +26,7 @@ import com.example.ui.components.BarcodeScannerModal
 import com.example.ui.components.PrinterDeviceDialog
 import com.example.ui.components.RackAssignmentDialog
 import com.example.ui.components.SettlementDialog
+import com.example.ui.components.SyncQueueDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.DriverViewModel
 import com.example.utils.FarsiUtils
@@ -41,6 +42,10 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     val authLoading by viewModel.authLoading.collectAsState()
     val authError by viewModel.authError.collectAsState()
     val generatedOtp by viewModel.generatedOtp.collectAsState()
+
+    val isOnline by viewModel.isOnline.collectAsState()
+    val pendingQueueItems by viewModel.pendingQueueItems.collectAsState()
+    val pendingQueueCount by viewModel.pendingQueueCount.collectAsState()
 
     val orders by viewModel.ordersList.collectAsState()
     val selectedOrder by viewModel.selectedOrder.collectAsState()
@@ -61,7 +66,13 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     val availablePrinters by viewModel.availablePrinters.collectAsState()
     val isPrinting by viewModel.isPrinting.collectAsState()
 
+    val serverUrl by viewModel.serverUrl.collectAsState()
+    val isTestingConnection by viewModel.isTestingConnection.collectAsState()
+    val connectionTestResult by viewModel.connectionTestResult.collectAsState()
+    val backupInfo by viewModel.backupInfo.collectAsState()
+
     var showPrinterDialog by remember { mutableStateOf(false) }
+    var showSyncQueueDialog by remember { mutableStateOf(false) }
     var rackDialogOrderId by remember { mutableStateOf<String?>(null) }
     var settlementOrder by remember { mutableStateOf<OrderWithItems?>(null) }
 
@@ -80,6 +91,16 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
             onConnect = { viewModel.connectPrinter(it) },
             onDisconnect = { /* handled in manager */ },
             onDismiss = { showPrinterDialog = false }
+        )
+    }
+
+    if (showSyncQueueDialog) {
+        SyncQueueDialog(
+            isOnline = isOnline,
+            pendingQueue = pendingQueueItems,
+            isSyncing = isSyncing,
+            onDismiss = { showSyncQueueDialog = false },
+            onSyncNow = { viewModel.syncWithWebPanel() }
         )
     }
 
@@ -215,11 +236,12 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                             }
                         },
                         actions = {
-                            // Active status pill badge
+                            // Active status pill badge with Room offline sync indicator
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(CleanTealContainer)
+                                    .background(if (!isOnline || pendingQueueCount > 0) Color(0xFFFFF3E0) else CleanTealContainer)
+                                    .clickable { showSyncQueueDialog = true }
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -227,14 +249,14 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                                         modifier = Modifier
                                             .size(6.dp)
                                             .clip(CircleShape)
-                                            .background(CleanTealAccent)
+                                            .background(if (!isOnline || pendingQueueCount > 0) Color(0xFFFF9800) else CleanTealAccent)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "آنلاین",
+                                        text = if (pendingQueueCount > 0) "${FarsiUtils.toFarsiDigits(pendingQueueCount.toString())} آفلاین" else if (!isOnline) "آفلاین" else "آنلاین",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CleanTealAccent
+                                        color = if (!isOnline || pendingQueueCount > 0) Color(0xFFE65100) else CleanTealAccent
                                     )
                                 }
                             }
@@ -386,6 +408,17 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                             showPrinterDialog = true
                         },
                         onSyncNow = { viewModel.syncWithWebPanel() },
+                        savedServerUrl = serverUrl,
+                        isTestingConnection = isTestingConnection,
+                        connectionTestResult = connectionTestResult,
+                        onUpdateServerUrl = { viewModel.updateServerUrl(it) },
+                        onTestConnection = { viewModel.testServerConnection(it) },
+                        onTestNotification = { viewModel.sendTestNotification(context) },
+                        onSimulateNewOrder = { viewModel.simulateIncomingServerOrder(context) },
+                        onSimulateStatusChange = { viewModel.simulateServerStatusChange(context) },
+                        backupInfo = backupInfo,
+                        onBackupDatabase = { viewModel.backupDatabase() },
+                        onRestoreDatabase = { viewModel.restoreDatabase() },
                         onLogout = { viewModel.logoutDriver() }
                     )
                     99 -> CarpetRegistrationScreen(

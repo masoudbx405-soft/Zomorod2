@@ -56,6 +56,15 @@ interface OrderDao {
     @Query("SELECT COUNT(*) FROM orders WHERE isSynced = 0")
     fun getUnsyncedOrdersCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM orders")
+    suspend fun getOrderCount(): Int
+
+    @Query("SELECT * FROM orders")
+    suspend fun getAllOrdersDirect(): List<OrderEntity>
+
+    @Query("SELECT * FROM carpet_items")
+    suspend fun getAllCarpetItemsDirect(): List<CarpetItemEntity>
+
     @Query("SELECT * FROM orders WHERE isSynced = 0")
     suspend fun getUnsyncedOrders(): List<OrderEntity>
 

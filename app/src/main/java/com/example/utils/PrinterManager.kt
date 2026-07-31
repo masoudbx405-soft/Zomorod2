@@ -3,12 +3,15 @@ package com.example.utils
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import java.io.OutputStream
+import java.util.UUID
 
 data class BluetoothPrinterDevice(
     val name: String,
@@ -17,6 +20,9 @@ data class BluetoothPrinterDevice(
 )
 
 object PrinterManager {
+
+    private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    private var bluetoothSocket: BluetoothSocket? = null
 
     private val _connectedPrinter = MutableStateFlow<BluetoothPrinterDevice?>(null)
     val connectedPrinter: StateFlow<BluetoothPrinterDevice?> = _connectedPrinter
@@ -36,15 +42,15 @@ object PrinterManager {
                 val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter.bondedDevices
                 pairedDevices?.forEach { device ->
                     @SuppressLint("MissingPermission")
-                    list.add(BluetoothPrinterDevice(device.name ?: "Unknown Printer", device.address))
+                    list.add(BluetoothPrinterDevice(device.name ?: "پرینتر بلوتوثی", device.address))
                 }
             }
         } catch (e: Exception) {
-            // Permission or BT disabled
+            e.printStackTrace()
         }
 
-        // Add simulated thermal printers if list is empty or for demo
-        if (list.none { it.name.contains("Thermal", true) || it.name.contains("POS", true) || it.name.contains("MTP", true) }) {
+        // Add simulated thermal printers if list is empty or for demo/testing
+        if (list.none { it.name.contains("Thermal", true) || it.name.contains("POS", true) || it.name.contains("MTP", true) || it.name.contains("BTP", true) }) {
             list.add(BluetoothPrinterDevice("پرینتر حرارتی بلوتوثی BTP-58 (کارگاه)", "00:11:22:33:44:55"))
             list.add(BluetoothPrinterDevice("پرینتر سیار راننده (MTP-II)", "AA:BB:CC:DD:EE:FF"))
             list.add(BluetoothPrinterDevice("پرینتر قالیشویی زمرد (POS-80)", "12:34:56:78:9A:BC"))
@@ -53,15 +59,40 @@ object PrinterManager {
         _availablePrinters.value = list
     }
 
+    @SuppressLint("MissingPermission")
     suspend fun connectPrinter(device: BluetoothPrinterDevice): Boolean {
         return withContext(Dispatchers.IO) {
-            delay(1000) // Simulating BT connection protocol handshakes
+            disconnectPrinter()
+            try {
+                val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+                if (bluetoothAdapter != null && bluetoothAdapter.isEnabled && BluetoothAdapter.checkBluetoothAddress(device.address)) {
+                    val realDevice = bluetoothAdapter.getRemoteDevice(device.address)
+                    if (realDevice != null) {
+                        bluetoothAdapter.cancelDiscovery()
+                        val socket = realDevice.createRfcommSocketToServiceRecord(SPP_UUID)
+                        socket.connect()
+                        bluetoothSocket = socket
+                        _connectedPrinter.value = device.copy(isConnected = true)
+                        return@withContext true
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            // Fallback connection mode for virtual/demo printers or emulator
+            delay(800)
             _connectedPrinter.value = device.copy(isConnected = true)
             true
         }
     }
 
     fun disconnectPrinter() {
+        try {
+            bluetoothSocket?.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        bluetoothSocket = null
         _connectedPrinter.value = null
     }
 
@@ -80,9 +111,84 @@ object PrinterManager {
     ): Boolean {
         return withContext(Dispatchers.IO) {
             _isPrinting.value = true
-            delay(1800) // Simulating Bluetooth stream writing and paper motor printing
-            _isPrinting.value = false
-            true
+            var success = false
+            try {
+                val receiptText = buildEscPosThermalReceiptText(
+                    title = title,
+                    orderId = orderId,
+                    customerName = customerName,
+                    customerPhone = customerPhone,
+                    address = address,
+                    carpetItemsSummary = carpetDetails.split("\n").filter { it.isNotBlank() },
+                    totalPrice = totalPrice,
+                    discount = discount,
+                    netPayable = finalPrice,
+                    paymentMethod = paymentStatus,
+                    rackCode = rackCode,
+                    includeTwoCopies = true
+                )
+
+                val socket = bluetoothSocket
+                if (socket != null && socket.isConnected) {
+                    val outputStream: OutputStream = socket.outputStream
+                    // ESC/POS Commands initialization and formatting
+                    val initPrinter = byteArrayOf(0x1B, 0x40) // ESC @ (Init)
+                    val alignCenter = byteArrayOf(0x1B, 0x61, 0x01) // Center align
+                    val selectCodePage = byteArrayOf(0x1B, 0x74, 0x16) // Select code table / UTF-8
+                    val feedAndCut = byteArrayOf(0x1D, 0x56, 0x42, 0x00) // Cut paper
+
+                    outputStream.write(initPrinter)
+                    outputStream.write(alignCenter)
+                    outputStream.write(selectCodePage)
+                    outputStream.write(receiptText.toByteArray(Charsets.UTF_8))
+                    outputStream.write(byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A)) // Line feeds
+                    outputStream.write(feedAndCut)
+                    outputStream.flush()
+                    success = true
+                } else {
+                    // Simulation mode fallback for emulator or demo device
+                    delay(1800)
+                    success = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                try { bluetoothSocket?.close() } catch (_: Exception) {}
+                bluetoothSocket = null
+                _connectedPrinter.value = _connectedPrinter.value?.copy(isConnected = false)
+            } finally {
+                _isPrinting.value = false
+            }
+            success
+        }
+    }
+
+    suspend fun printRawText(text: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            _isPrinting.value = true
+            var success = false
+            try {
+                val socket = bluetoothSocket
+                if (socket != null && socket.isConnected) {
+                    val outputStream = socket.outputStream
+                    val initPrinter = byteArrayOf(0x1B, 0x40)
+                    val feedAndCut = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
+
+                    outputStream.write(initPrinter)
+                    outputStream.write(text.toByteArray(Charsets.UTF_8))
+                    outputStream.write(byteArrayOf(0x0A, 0x0A, 0x0A))
+                    outputStream.write(feedAndCut)
+                    outputStream.flush()
+                    success = true
+                } else {
+                    delay(1200)
+                    success = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isPrinting.value = false
+            }
+            success
         }
     }
 

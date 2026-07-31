@@ -12,8 +12,14 @@ interface GpsLogDao {
     @Query("SELECT * FROM gps_logs ORDER BY timestamp DESC LIMIT 50")
     fun getRecentGpsLogs(): Flow<List<GpsLogEntity>>
 
+    @Query("SELECT * FROM gps_logs")
+    suspend fun getAllGpsLogsDirect(): List<GpsLogEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGpsLog(log: GpsLogEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGpsLogs(logs: List<GpsLogEntity>)
 
     @Query("SELECT * FROM gps_logs WHERE isSynced = 0")
     suspend fun getUnsyncedGpsLogs(): List<GpsLogEntity>
