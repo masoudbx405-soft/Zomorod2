@@ -84,7 +84,8 @@ fun DeliveryRouteScreen(
         )
     }
 
-    if (scanNoticeMessage != null) {
+    val activeNoticeMsg = scanNoticeMessage
+    if (activeNoticeMsg != null) {
         AlertDialog(
             onDismissRequest = { scanNoticeMessage = null },
             confirmButton = {
@@ -99,20 +100,20 @@ fun DeliveryRouteScreen(
                     Text("نتیجه اسکن بارکد فاکتور", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             },
-            text = { Text(scanNoticeMessage!!, fontSize = 13.sp) },
+            text = { Text(activeNoticeMsg, fontSize = 13.sp) },
             shape = RoundedCornerShape(16.dp)
         )
     }
 
-    if (orderForCleanWarehouseReturn != null) {
-        val target = orderForCleanWarehouseReturn!!
+    val activeReturnOrder = orderForCleanWarehouseReturn
+    if (activeReturnOrder != null) {
         ReturnToCleanWarehouseDialog(
-            orderId = target.order.id,
-            customerName = target.order.customerName,
-            currentRackCode = target.order.rackCode,
+            orderId = activeReturnOrder.order.id,
+            customerName = activeReturnOrder.order.customerName,
+            currentRackCode = activeReturnOrder.order.rackCode,
             onDismiss = { orderForCleanWarehouseReturn = null },
             onConfirm = { cleanRackCode, reason ->
-                onReturnToCleanWarehouse(target.order.id, cleanRackCode, reason)
+                onReturnToCleanWarehouse(activeReturnOrder.order.id, cleanRackCode, reason)
                 orderForCleanWarehouseReturn = null
             }
         )

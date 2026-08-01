@@ -104,28 +104,29 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
         )
     }
 
-    if (rackDialogOrderId != null) {
-        val currentOrder = orders.find { it.order.id == rackDialogOrderId }
+    val activeRackOrderId = rackDialogOrderId
+    if (activeRackOrderId != null) {
+        val currentOrder = orders.find { it.order.id == activeRackOrderId }
         RackAssignmentDialog(
-            orderId = rackDialogOrderId!!,
+            orderId = activeRackOrderId,
             currentRackCode = currentOrder?.order?.rackCode ?: "",
             onDismiss = { rackDialogOrderId = null },
             onConfirm = { rackCode ->
-                viewModel.assignRackCode(rackDialogOrderId!!, rackCode)
+                viewModel.assignRackCode(activeRackOrderId, rackCode)
                 rackDialogOrderId = null
             }
         )
     }
 
-    if (settlementOrder != null) {
+    val activeSettlementOrder = settlementOrder
+    if (activeSettlementOrder != null) {
         SettlementDialog(
-            orderWithItems = settlementOrder!!,
+            orderWithItems = activeSettlementOrder,
             onDismiss = { settlementOrder = null },
             onConfirmSettlement = { paid, discount, method, print ->
-                val ord = settlementOrder!!
-                viewModel.settlePayment(ord.order.id, paid, discount, method)
+                viewModel.settlePayment(activeSettlementOrder.order.id, paid, discount, method)
                 if (print) {
-                    viewModel.printOrderReceipt("رسید تسویه حساب و تحویل فرش", ord, method)
+                    viewModel.printOrderReceipt("رسید تسویه حساب و تحویل فرش", activeSettlementOrder, method)
                 }
                 settlementOrder = null
             }

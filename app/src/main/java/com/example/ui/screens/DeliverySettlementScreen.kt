@@ -69,30 +69,30 @@ fun DeliverySettlementScreen(
     val posReceived = maxOf(0L, totalReceived - cashReceived)
     val settledCount = settledTodayOrders.size
 
-    if (selectedOrderForSettlement != null) {
+    val activeSettlement = selectedOrderForSettlement
+    if (activeSettlement != null) {
         SettlementDialog(
-            orderWithItems = selectedOrderForSettlement!!,
+            orderWithItems = activeSettlement,
             onDismiss = { selectedOrderForSettlement = null },
             onConfirmSettlement = { paid, discount, method, print ->
-                val order = selectedOrderForSettlement!!
-                onSettlePayment(order.order.id, paid, discount, method)
+                onSettlePayment(activeSettlement.order.id, paid, discount, method)
                 if (print) {
-                    onPrintReceipt(order, method)
+                    onPrintReceipt(activeSettlement, method)
                 }
                 selectedOrderForSettlement = null
             }
         )
     }
 
-    if (orderForCleanWarehouseReturn != null) {
-        val target = orderForCleanWarehouseReturn!!
+    val activeReturn = orderForCleanWarehouseReturn
+    if (activeReturn != null) {
         ReturnToCleanWarehouseDialog(
-            orderId = target.order.id,
-            customerName = target.order.customerName,
-            currentRackCode = target.order.rackCode,
+            orderId = activeReturn.order.id,
+            customerName = activeReturn.order.customerName,
+            currentRackCode = activeReturn.order.rackCode,
             onDismiss = { orderForCleanWarehouseReturn = null },
             onConfirm = { cleanRackCode, reason ->
-                onReturnToCleanWarehouse(target.order.id, cleanRackCode, reason)
+                onReturnToCleanWarehouse(activeReturn.order.id, cleanRackCode, reason)
                 orderForCleanWarehouseReturn = null
             }
         )

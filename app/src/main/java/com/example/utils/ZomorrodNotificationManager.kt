@@ -60,7 +60,7 @@ object ZomorrodNotificationManager {
             val message = "مشتری: $customerName\nآدرس: $address"
 
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText("سفارش جدید #$orderId برای راننده اختصاص یافت: $customerName")
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -100,7 +100,7 @@ object ZomorrodNotificationManager {
             val message = "وضعیت جدید سفارش $customerName در سرور به «$newStatusTitle» تغییر یافت."
 
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -130,7 +130,7 @@ object ZomorrodNotificationManager {
             )
 
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("✅ تست سیستم اعلان‌های قالیشویی زمرد")
                 .setContentText("اتصال سیستم اعلان محلی راننده برقرار است و پیام‌ها دریافت می‌شوند.")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
