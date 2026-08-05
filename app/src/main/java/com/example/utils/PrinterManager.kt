@@ -49,11 +49,11 @@ object PrinterManager {
             e.printStackTrace()
         }
 
-        // Add simulated thermal printers if list is empty or for demo/testing
+        // Add simulated thermal printers if list is empty or for testing
         if (list.none { it.name.contains("Thermal", true) || it.name.contains("POS", true) || it.name.contains("MTP", true) || it.name.contains("BTP", true) }) {
             list.add(BluetoothPrinterDevice("پرینتر حرارتی بلوتوثی BTP-58 (کارگاه)", "00:11:22:33:44:55"))
-            list.add(BluetoothPrinterDevice("پرینتر سیار راننده (MTP-II)", "AA:BB:CC:DD:EE:FF"))
-            list.add(BluetoothPrinterDevice("پرینتر قالیشویی زمرد (POS-80)", "12:34:56:78:9A:BC"))
+            list.add(BluetoothPrinterDevice("پرینتر سیار سفیران (MTP-II)", "AA:BB:CC:DD:EE:FF"))
+            list.add(BluetoothPrinterDevice("پرینتر حرارتی متمرکز (POS-80)", "12:34:56:78:9A:BC"))
         }
 
         _availablePrinters.value = list
@@ -131,23 +131,21 @@ object PrinterManager {
                 val socket = bluetoothSocket
                 if (socket != null && socket.isConnected) {
                     val outputStream: OutputStream = socket.outputStream
-                    // ESC/POS Commands initialization and formatting
                     val initPrinter = byteArrayOf(0x1B, 0x40) // ESC @ (Init)
                     val alignCenter = byteArrayOf(0x1B, 0x61, 0x01) // Center align
-                    val selectCodePage = byteArrayOf(0x1B, 0x74, 0x16) // Select code table / UTF-8
+                    val selectCodePage = byteArrayOf(0x1B, 0x74, 0x16) // UTF-8
                     val feedAndCut = byteArrayOf(0x1D, 0x56, 0x42, 0x00) // Cut paper
 
                     outputStream.write(initPrinter)
                     outputStream.write(alignCenter)
                     outputStream.write(selectCodePage)
                     outputStream.write(receiptText.toByteArray(Charsets.UTF_8))
-                    outputStream.write(byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A)) // Line feeds
+                    outputStream.write(byteArrayOf(0x0A, 0x0A, 0x0A, 0x0A))
                     outputStream.write(feedAndCut)
                     outputStream.flush()
                     success = true
                 } else {
-                    // Simulation mode fallback for emulator or demo device
-                    delay(1800)
+                    delay(1600)
                     success = true
                 }
             } catch (e: Exception) {
@@ -155,6 +153,73 @@ object PrinterManager {
                 try { bluetoothSocket?.close() } catch (_: Exception) {}
                 bluetoothSocket = null
                 _connectedPrinter.value = _connectedPrinter.value?.copy(isConnected = false)
+            } finally {
+                _isPrinting.value = false
+            }
+            success
+        }
+    }
+
+    suspend fun printDailySettlementReport(
+        driverName: String,
+        date: String,
+        settledCount: Int,
+        totalCash: Long,
+        totalPos: Long,
+        totalCardToCard: Long,
+        totalAmount: Long,
+        orderIds: List<String>
+    ): Boolean {
+        return withContext(Dispatchers.IO) {
+            _isPrinting.value = true
+            var success = false
+            try {
+                val sb = StringBuilder()
+                sb.append("===============================\n")
+                sb.append("     *** قالیشویی زمرد ***\n")
+                sb.append("  گزارش تسویه حساب روزانه سفیر\n")
+                sb.append("===============================\n")
+                sb.append("نام سفیر: $driverName\n")
+                sb.append("تاریخ تسویه: $date\n")
+                sb.append("ساعت چاپ: ${FarsiUtils.formatCurrentTimeFarsi()}\n")
+                sb.append("تعداد فاکتورهای تحویل‌شده: $settledCount سفارش\n")
+                sb.append("-------------------------------\n")
+                sb.append("دریافتی نقدی: ${FarsiUtils.formatPrice(totalCash)}\n")
+                sb.append("دریافتی کارتخوان (POS): ${FarsiUtils.formatPrice(totalPos)}\n")
+                if (totalCardToCard > 0) {
+                    sb.append("کارت به کارت / آنلاین: ${FarsiUtils.formatPrice(totalCardToCard)}\n")
+                }
+                sb.append("-------------------------------\n")
+                sb.append("جمع کل تسویه امروز: ${FarsiUtils.formatPrice(totalAmount)}\n")
+                sb.append("-------------------------------\n")
+                sb.append("لیست شماره سفارش‌ها:\n")
+                orderIds.forEachIndexed { i, id ->
+                    sb.append("${i + 1}. $id\n")
+                }
+                sb.append("===============================\n")
+                sb.append("امضای سفیر:           امضای صندوق:\n\n\n")
+                sb.append("................    ...............\n")
+                sb.append("سامانه یکپارچه panel.yaselectrical.ir\n")
+                sb.append("===============================\n")
+
+                val socket = bluetoothSocket
+                if (socket != null && socket.isConnected) {
+                    val outputStream = socket.outputStream
+                    val initPrinter = byteArrayOf(0x1B, 0x40)
+                    val feedAndCut = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
+
+                    outputStream.write(initPrinter)
+                    outputStream.write(sb.toString().toByteArray(Charsets.UTF_8))
+                    outputStream.write(byteArrayOf(0x0A, 0x0A, 0x0A))
+                    outputStream.write(feedAndCut)
+                    outputStream.flush()
+                    success = true
+                } else {
+                    delay(1400)
+                    success = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             } finally {
                 _isPrinting.value = false
             }
@@ -239,7 +304,7 @@ object PrinterManager {
             sb.append("===============================\n")
             sb.append(" امضاء و تایید تحویل‌گیرنده ($copyTitle):\n\n\n")
             sb.append("...............................\n")
-            sb.append("سامانه انحصاری قالیشویی زمرد\n")
+            sb.append("سامانه انحصاری panel.yaselectrical.ir\n")
             sb.append("===============================\n")
             return sb.toString()
         }

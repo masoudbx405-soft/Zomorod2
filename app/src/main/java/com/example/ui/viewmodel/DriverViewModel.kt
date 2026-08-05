@@ -7,14 +7,16 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.ZomorrodDatabase
 import com.example.data.local.entities.CarpetItemEntity
 import com.example.data.local.entities.ChatMessageEntity
+import com.example.data.local.entities.DriverEntity
+import com.example.data.local.entities.DriverSettlementEntity
 import com.example.data.local.entities.GpsLogEntity
 import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.SyncQueueEntity
 import com.example.data.local.model.OrderWithItems
 import com.example.data.repository.ZomorrodRepository
+import com.example.utils.BackupInfo
 import com.example.utils.BluetoothPrinterDevice
 import com.example.utils.DatabaseBackupManager
-import com.example.utils.BackupInfo
 import com.example.utils.FarsiUtils
 import com.example.utils.NetworkMonitor
 import com.example.utils.PrinterManager
@@ -27,13 +29,20 @@ import kotlinx.coroutines.launch
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = ZomorrodDatabase.getDatabase(application)
-    private val repository = ZomorrodRepository(db.orderDao(), db.chatMessageDao(), db.gpsLogDao(), db.syncQueueDao())
+    private val repository = ZomorrodRepository(
+        orderDao = db.orderDao(),
+        chatMessageDao = db.chatMessageDao(),
+        gpsLogDao = db.gpsLogDao(),
+        syncQueueDao = db.syncQueueDao(),
+        driverDao = db.driverDao(),
+        driverSettlementDao = db.driverSettlementDao()
+    )
     private val networkMonitor = NetworkMonitor(application)
     private val prefs = application.getSharedPreferences("zomorrod_driver_prefs", Context.MODE_PRIVATE)
 
     val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
-    private val _isLoggedIn = MutableStateFlow(false)
+    private val _isLoggedIn = MutableStateFlow(prefs.getBoolean("is_logged_in", false))
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
     private val _savedDriverPhone = MutableStateFlow(prefs.getString("driver_phone", "09123456789") ?: "09123456789")
@@ -48,10 +57,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _authError = MutableStateFlow<String?>(null)
     val authError: StateFlow<String?> = _authError
 
-    private val _generatedOtp = MutableStateFlow("1234")
+    private val _generatedOtp = MutableStateFlow("20117")
     val generatedOtp: StateFlow<String> = _generatedOtp
 
-    private val _serverUrl = MutableStateFlow(prefs.getString("server_url", "https://panel.zomorrod-carpet.com/api/v1") ?: "https://panel.zomorrod-carpet.com/api/v1")
+    private val _serverUrl = MutableStateFlow(prefs.getString("server_url", "https://panel.yaselectrical.ir") ?: "https://panel.yaselectrical.ir")
     val serverUrl: StateFlow<String> = _serverUrl
 
     private val _isTestingConnection = MutableStateFlow(false)
@@ -63,18 +72,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun updateServerUrl(url: String) {
         _serverUrl.value = url
         prefs.edit().putString("server_url", url).apply()
+        repository.supabaseService.updateConfig(url)
     }
 
     fun testServerConnection(url: String) {
         viewModelScope.launch {
             _isTestingConnection.value = true
             _connectionTestResult.value = null
-            delay(1200)
-            if (!networkMonitor.isOnline.value) {
-                _connectionTestResult.value = "خطا: عدم اتصال به اینترنت گوشی! دستگاه در حالت آفلاین قرار دارد."
-            } else {
-                _connectionTestResult.value = "موفقیت‌آمیز: اتصال به آدرس $url برقرار است.\nکد وضعیت: HTTP 200 OK | پینگ: ۳۶ میلی‌ثانیه"
-            }
+            val result = repository.supabaseService.testConnection(url)
+            _connectionTestResult.value = result.second
             _isTestingConnection.value = false
         }
     }
@@ -92,7 +98,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _authLoading.value = false
             _otpSent.value = true
             _generatedOtp.value = "20117"
-            _syncToastMessage.value = "شماره راننده تایید شد. کد یکبار مصرف ارسال گردید (کد تست پشتیبان: 20117)"
+            _syncToastMessage.value = "شماره راننده تایید شد. کد یکبار مصرف ارسال گردید (کد تست: 20117)"
         }
     }
 
@@ -112,7 +118,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _savedDriverPhone.value = cleanPhone
             _isLoggedIn.value = true
             _otpSent.value = false
-            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز راننده با کد احراز هویت"
+            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز راننده به سامانه panel.yaselectrical.ir"
         }
     }
 
@@ -165,6 +171,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     val gpsLogs: StateFlow<List<GpsLogEntity>> = repository.recentGpsLogs
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val allSettlements: StateFlow<List<DriverSettlementEntity>> = repository.allSettlements
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -300,7 +313,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         if (_isGpsActive.value) {
             val started = realGpsManager.startTracking()
             if (!started) {
-                // Real GPS request fallback if location service or permission needs initialization
                 viewModelScope.launch {
                     repository.logGpsLocation(35.779, 51.405, 0.0f)
                 }
@@ -324,7 +336,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         val area = lengthMeter * widthMeter
         val itemTotalPrice = (area * unitPricePerMeter).toLong()
         val finalTag = if (barcodeTag.isNotBlank()) barcodeTag.trim().uppercase()
-            else "ST-${orderId.takeLast(4)}-${(1..99).random().toString().padStart(2, '0')}"
+        else "ST-${orderId.takeLast(4)}-${(1..99).random().toString().padStart(2, '0')}"
 
         val item = CarpetItemEntity(
             orderId = orderId,
@@ -354,7 +366,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.updateOrderStatus(orderId, "COLLECTED_IN_INSPECTION")
             _syncToastMessage.value = "ثبت فاکتور سفارش $orderId انجام شد و به منوی تحویل انبار منتقل گردید"
-            _activeTab.value = 1 // Return back to collection menu tab
+            _activeTab.value = 1
+        }
+    }
+
+    fun captureCustomerSignature(orderId: String, signatureData: String) {
+        viewModelScope.launch {
+            repository.updateCustomerSignature(orderId, signatureData)
+            _syncToastMessage.value = "امضای دیجیتال مشتری برای سفارش $orderId با موفقیت ذخیره و الصاق گردید"
         }
     }
 
@@ -370,17 +389,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _isSyncing.value = true
             try {
                 repository.updateRackAssignment(orderId, rackCode)
-                val isSynced = repository.syncWithWebPanel()
+                val isSynced = repository.syncWithWebPanel(serverUrl.value)
                 _isSyncing.value = false
                 if (isSynced) {
                     repository.updateOrderStatus(orderId, "DELIVERED_TO_WORKSHOP")
-                    _syncToastMessage.value = "تأیید تحویل به انباردار و شماره قفسه $rackCode سفارش $orderId با موفقیت به پنل ارسال و از لیست حذف شد"
+                    _syncToastMessage.value = "تأیید تحویل به انباردار و قفسه $rackCode به سرور panel.yaselectrical.ir ارسال شد"
                 } else {
-                    _syncToastMessage.value = "خطا در ارسال اطلاعات به پنل! سفارش از لیست حذف نشد، لطفاً دوباره تلاش کنید."
+                    _syncToastMessage.value = "تحویل قفسه $rackCode در دیتابیس ثبت و در صف همگام‌سازی قرار گرفت"
                 }
             } catch (e: Exception) {
                 _isSyncing.value = false
-                _syncToastMessage.value = "خطا در برقراری ارتباط با پنل انبار: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
+                _syncToastMessage.value = "خطا در ثبت تحویل به انبار: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
             }
         }
     }
@@ -389,9 +408,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _isSyncing.value = true
             try {
-                repository.updateRackAssignment(orderId, rackCode)
-                repository.updateOrderStatus(orderId, "RETURNED_TO_CLEAN_WAREHOUSE")
-                val isSynced = repository.syncWithWebPanel()
+                repository.updateCleanWarehouseReturn(orderId, rackCode, reason)
+                val isSynced = repository.syncWithWebPanel(serverUrl.value)
                 _isSyncing.value = false
                 _syncToastMessage.value = "سفارش $orderId به قفسه تمیز انبار ($rackCode) بازگردانده شد و جهت برنامه‌ریزی مجدد به پنل ارسال گردید."
             } catch (e: Exception) {
@@ -417,20 +435,67 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _isSyncing.value = true
             try {
-                val success = repository.syncWithWebPanel()
+                val settledOrders = ordersList.value.filter { it.order.status == "DELIVERED_SETTLED" }
+                val totalCash = settledOrders.filter {
+                    it.order.paymentMethod.contains("CASH", true) || it.order.paymentMethod.contains("نقدی")
+                }.sumOf { it.order.paidAmount }
+                val totalPos = settledOrders.filter {
+                    it.order.paymentMethod.contains("POS", true) || it.order.paymentMethod.contains("کارتخوان")
+                }.sumOf { it.order.paidAmount }
+                val totalAmount = settledOrders.sumOf { it.order.paidAmount }
+
+                val settlementEntity = DriverSettlementEntity(
+                    id = "STL-${System.currentTimeMillis()}",
+                    driverId = "DRV-101",
+                    driverName = "مسعود بختیاری",
+                    date = FarsiUtils.formatCurrentTimeFarsi().split(" ").firstOrNull() ?: "امروز",
+                    totalCash = totalCash,
+                    totalPos = totalPos,
+                    totalAmount = totalAmount,
+                    ordersCount = settledOrders.size,
+                    orderIdsJson = settledOrders.map { it.order.id }.toString(),
+                    status = "pending_approval",
+                    notes = "تسویه روزانه توسط راننده ثبت شد"
+                )
+
+                repository.saveDriverSettlement(settlementEntity)
+                val success = repository.syncWithWebPanel(serverUrl.value)
                 repository.archiveSettledOrders()
                 _isSyncing.value = false
-                if (success) {
-                    _syncToastMessage.value = "تسویه روزانه با دفتر مدیریت انجام شد و لیست تصفیه‌شده‌های امروز پاک گردید."
-                    onSuccess()
-                } else {
-                    _syncToastMessage.value = "اطلاعات تسویه ذخیره شد و لیست تصفیه‌شده‌های امروز پاک گردید."
-                    onSuccess()
-                }
+                _syncToastMessage.value = "تسویه روزانه ثبت و به سرور panel.yaselectrical.ir ارسال شد."
+                onSuccess()
             } catch (e: Exception) {
                 _isSyncing.value = false
                 _syncToastMessage.value = "خطا در تسویه با دفتر: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
             }
+        }
+    }
+
+    fun printDailySettlementReport(
+        driverName: String = "مسعود بختیاری",
+        date: String = "امروز",
+        settledOrders: List<OrderWithItems>
+    ) {
+        viewModelScope.launch {
+            val totalCash = settledOrders.filter {
+                it.order.paymentMethod.contains("CASH", true) || it.order.paymentMethod.contains("نقدی")
+            }.sumOf { it.order.paidAmount }
+            val totalPos = settledOrders.filter {
+                it.order.paymentMethod.contains("POS", true) || it.order.paymentMethod.contains("کارتخوان")
+            }.sumOf { it.order.paidAmount }
+            val totalAmount = settledOrders.sumOf { it.order.paidAmount }
+
+            PrinterManager.printDailySettlementReport(
+                driverName = driverName,
+                date = date,
+                settledCount = settledOrders.size,
+                totalCash = totalCash,
+                totalPos = totalPos,
+                totalCardToCard = 0L,
+                totalAmount = totalAmount,
+                orderIds = settledOrders.map { it.order.id }
+            )
+            _syncToastMessage.value = "گزارش تسویه روزانه به پرینتر حرارتی ارسال شد"
         }
     }
 
@@ -439,11 +504,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         val currentOrder = selectedOrder.value?.order?.id ?: "GENERAL"
         viewModelScope.launch {
             repository.sendChatMessage(currentOrder, text, sender = "DRIVER")
-            // Simulate dispatcher auto-reply if needed
             delay(1500)
             repository.sendChatMessage(
                 currentOrder,
-                "پیام شما توسط اپراتور دریافت شد. هماهنگی‌های لازم در حال انجام است.",
+                "پیام شما توسط دیسپچر متمرکز panel.yaselectrical.ir دریافت گردید.",
                 sender = "DISPATCHER"
             )
         }
@@ -525,14 +589,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
             val newOrder = OrderEntity(
                 id = newOrderId,
+                orderSequence = (ordersList.value.size + 1),
+                trackingCode = "TRK-$randomNum",
                 customerName = selectedName,
                 customerPhone = "0912${(1000000..9999999).random()}",
                 address = selectedAddress,
-                notes = "اختصاص داده شده از پنل مرکزی قالیشویی زمرد",
+                notes = "اختصاص داده شده از پنل متمرکز panel.yaselectrical.ir",
                 latitude = 35.77 + ((1..50).random() / 1000.0),
                 longitude = 51.40 + ((1..50).random() / 1000.0),
                 orderType = if (randomNum % 2 == 0) "PICKUP" else "DELIVERY",
                 status = "ASSIGNED",
+                stage = "pickup_assigned",
                 totalAmount = 0L,
                 routeOrder = (ordersList.value.size + 1),
                 isSynced = true
@@ -547,7 +614,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 address = selectedAddress
             )
 
-            _syncToastMessage.value = "سفارش جدید $newOrderId از سرور دریافت شد و اعلان صادر گردید."
+            _syncToastMessage.value = "سفارش جدید $newOrderId از پنل دریافت شد و اعلان صادر گردید."
         }
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.*
@@ -21,6 +22,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
+import com.example.ui.theme.CleanBluePrimary
+import com.example.ui.theme.CleanTealAccent
+import com.example.ui.theme.CleanTealContainer
 import com.example.utils.FarsiUtils
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -28,17 +32,33 @@ import com.example.utils.FarsiUtils
 fun SettlementDialog(
     orderWithItems: OrderWithItems,
     onDismiss: () -> Unit,
-    onConfirmSettlement: (paidAmount: Long, discountAmount: Long, paymentMethod: String, printReceipt: Boolean) -> Unit
+    onConfirmSettlement: (paidAmount: Long, discountAmount: Long, paymentMethod: String, printReceipt: Boolean) -> Unit,
+    onSignatureCaptured: (orderId: String, signatureData: String) -> Unit = { _, _ -> }
 ) {
     val order = orderWithItems.order
     var discountInput by remember { mutableStateOf(order.discountAmount.toString()) }
     val totalAmount = order.totalAmount
 
-    var selectedMethod by remember { mutableStateOf("POS") } // POS, CASH, CREDIT
+    var selectedMethod by remember { mutableStateOf("POS") } // POS, CASH, CARD_TO_CARD, CREDIT
     var shouldPrint by remember { mutableStateOf(true) }
+    var showSignatureDialog by remember { mutableStateOf(false) }
+    var isSignatureCaptured by remember { mutableStateOf(order.customerSignatureUrl.isNotBlank()) }
 
     val discount = discountInput.toLongOrNull() ?: 0L
     val finalPayable = (totalAmount - discount).coerceAtLeast(0L)
+
+    if (showSignatureDialog) {
+        CustomerSignatureDialog(
+            customerName = order.customerName,
+            orderId = order.id,
+            onDismiss = { showSignatureDialog = false },
+            onConfirmSignature = { sigData ->
+                isSignatureCaptured = true
+                showSignatureDialog = false
+                onSignatureCaptured(order.id, sigData)
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -76,7 +96,7 @@ fun SettlementDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Summary
+                // Summary Card
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     shape = RoundedCornerShape(12.dp),
@@ -129,37 +149,75 @@ fun SettlementDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Payment Method
+                // Payment Method Selector
                 Text("روش پرداخت دریافتی در محل:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     FilterChip(
                         selected = selectedMethod == "POS",
                         onClick = { selectedMethod = "POS" },
-                        label = { Text("کارتخوان سیار (POS)") },
+                        label = { Text("کارتخوان (POS)", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = selectedMethod == "CASH",
                         onClick = { selectedMethod = "CASH" },
-                        label = { Text("دریافت نقدی") },
-                        modifier = Modifier.weight(1f)
+                        label = { Text("نقدی", fontSize = 12.sp) },
+                        modifier = Modifier.weight(0.8f)
                     )
                     FilterChip(
-                        selected = selectedMethod == "CREDIT",
-                        onClick = { selectedMethod = "CREDIT" },
-                        label = { Text("نسیه / بدهکار") },
+                        selected = selectedMethod == "CARD_TO_CARD",
+                        onClick = { selectedMethod = "CARD_TO_CARD" },
+                        label = { Text("کارت‌به‌کارت", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Digital signature button
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSignatureCaptured) CleanTealContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isSignatureCaptured) Icons.Default.Check else Icons.Default.Draw,
+                                contentDescription = null,
+                                tint = if (isSignatureCaptured) CleanTealAccent else CleanBluePrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isSignatureCaptured) "امضای دیجیتال مشتری ثبت شد ✓" else "امضای دیجیتال تحویل مشتری",
+                                fontSize = 13.sp,
+                                fontWeight = if (isSignatureCaptured) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showSignatureDialog = true },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(if (isSignatureCaptured) "تغییر امضا" else "دریافت امضا", fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Print Option
                 Row(
@@ -172,7 +230,7 @@ fun SettlementDialog(
                     )
                     Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("چاپ خودکار رسید تسویه توسط پرینتر حرارتی بلوتوثی", fontSize = 13.sp)
+                    Text("چاپ خودکار رسید تسویه توسط پرینتر حرارتی بلوتوثی", fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -180,13 +238,7 @@ fun SettlementDialog(
                 // Submit Button
                 Button(
                     onClick = {
-                        val methodLabel = when (selectedMethod) {
-                            "POS" -> "کارتخوان سیار"
-                            "CASH" -> "پرداخت نقدی"
-                            else -> "مانده نسیه"
-                        }
-                        onConfirmSettlement(finalPayable, discount, methodLabel, shouldPrint)
-                        onDismiss()
+                        onConfirmSettlement(finalPayable, discount, selectedMethod, shouldPrint)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -195,7 +247,7 @@ fun SettlementDialog(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("تایید نهایی تسویه و تحویل فرش به مشتری", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("ثبت نهایی تسویه و پایان ماموریت", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -384,6 +384,12 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                         onSettleWithOffice = {
                             viewModel.settleWithOffice()
                         },
+                        onPrintDailySettlementReport = {
+                            viewModel.printDailySettlementReport(settledOrders = orders.filter { it.order.status == "DELIVERED_SETTLED" })
+                        },
+                        onSignatureCaptured = { orderId, signatureData ->
+                            viewModel.captureCustomerSignature(orderId, signatureData)
+                        },
                         onReturnToCleanWarehouse = { orderId, cleanRack, reason ->
                             viewModel.returnToCleanWarehouse(orderId, cleanRack, reason)
                         }

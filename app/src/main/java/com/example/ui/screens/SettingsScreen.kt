@@ -38,7 +38,7 @@ fun SettingsScreen(
     connectedPrinterName: String?,
     onOpenPrinterDialog: () -> Unit,
     onSyncNow: () -> Unit,
-    savedServerUrl: String = "https://panel.zomorrod-carpet.com/api/v1",
+    savedServerUrl: String = "https://panel.yaselectrical.ir",
     isTestingConnection: Boolean = false,
     connectionTestResult: String? = null,
     onUpdateServerUrl: (String) -> Unit = {},

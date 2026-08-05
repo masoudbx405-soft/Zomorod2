@@ -35,6 +35,8 @@ fun DeliverySettlementScreen(
     onPrintReceipt: (OrderWithItems, String) -> Unit,
     onOpenScanner: (orderId: String) -> Unit = {},
     onSettleWithOffice: () -> Unit = {},
+    onPrintDailySettlementReport: () -> Unit = {},
+    onSignatureCaptured: (orderId: String, signatureData: String) -> Unit = { _, _ -> },
     onReturnToCleanWarehouse: (orderId: String, cleanRackCode: String, reason: String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -80,7 +82,8 @@ fun DeliverySettlementScreen(
                     onPrintReceipt(activeSettlement, method)
                 }
                 selectedOrderForSettlement = null
-            }
+            },
+            onSignatureCaptured = onSignatureCaptured
         )
     }
 
@@ -302,22 +305,43 @@ fun DeliverySettlementScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 2. Settlement with Office Button
-        Button(
-            onClick = { showOfficeSettlementDialog = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = CleanPurpleAccent)
+        // 2. Action Buttons: Settlement with Office & Print Daily Report
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "تسویه با دفتر و آماده‌سازی برای روز بعد",
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp
-            )
+            Button(
+                onClick = { showOfficeSettlementDialog = true },
+                modifier = Modifier
+                    .weight(1.3f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = CleanPurpleAccent)
+            ) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "تسویه روزانه با دفتر",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+
+            OutlinedButton(
+                onClick = onPrintDailySettlementReport,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "چاپ بیلان روزانه",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
