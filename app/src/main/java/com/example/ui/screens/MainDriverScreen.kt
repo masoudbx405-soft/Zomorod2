@@ -70,6 +70,8 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     val isTestingConnection by viewModel.isTestingConnection.collectAsState()
     val connectionTestResult by viewModel.connectionTestResult.collectAsState()
     val backupInfo by viewModel.backupInfo.collectAsState()
+    val isBgServiceRunning by viewModel.isBackgroundServiceRunning.collectAsState()
+    val bgLastSyncTime by viewModel.backgroundLastSyncTime.collectAsState()
 
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showSyncQueueDialog by remember { mutableStateOf(false) }
@@ -152,8 +154,7 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                 onResetOtp = { viewModel.resetOtpState() },
                 otpSent = otpSent,
                 isLoading = authLoading,
-                errorMessage = authError,
-                generatedOtpCode = generatedOtp
+                errorMessage = authError
             )
         } else {
             Scaffold(
@@ -414,15 +415,13 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                             viewModel.scanBluetoothPrinters(context)
                             showPrinterDialog = true
                         },
+                        onPrintTestReceipt = { viewModel.printTestReceipt() },
                         onSyncNow = { viewModel.syncWithWebPanel() },
                         savedServerUrl = serverUrl,
                         isTestingConnection = isTestingConnection,
                         connectionTestResult = connectionTestResult,
                         onUpdateServerUrl = { viewModel.updateServerUrl(it) },
                         onTestConnection = { viewModel.testServerConnection(it) },
-                        onTestNotification = { viewModel.sendTestNotification(context) },
-                        onSimulateNewOrder = { viewModel.simulateIncomingServerOrder(context) },
-                        onSimulateStatusChange = { viewModel.simulateServerStatusChange(context) },
                         backupInfo = backupInfo,
                         onBackupDatabase = { viewModel.backupDatabase() },
                         onRestoreDatabase = { viewModel.restoreDatabase() },

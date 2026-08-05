@@ -226,6 +226,50 @@ class ZomorrodSupabaseManager(
     }
 
     /**
+     * همگام‌سازی و ثبت اقلام فرش یک فاکتور در جدول carpet_items در Supabase
+     */
+    suspend fun upsertCarpetItems(items: List<com.example.data.local.entities.CarpetItemEntity>): Boolean = withContext(Dispatchers.IO) {
+        if (items.isEmpty()) return@withContext true
+        try {
+            val jsonArray = JSONArray()
+            items.forEach { item ->
+                val dto = item.toSupabaseDto()
+                val obj = JSONObject().apply {
+                    if (dto.id > 0) put("id", dto.id)
+                    put("order_id", dto.order_id)
+                    put("carpet_type", dto.carpet_type)
+                    put("length_meter", dto.length_meter)
+                    put("width_meter", dto.width_meter)
+                    put("area_sq_meter", dto.area_sq_meter)
+                    put("unit_price", dto.unit_price)
+                    put("requested_services", dto.requested_services)
+                    put("defects", dto.defects)
+                    put("total_price", dto.total_price)
+                    put("notes", dto.notes)
+                    put("barcode_tag", dto.barcode_tag)
+                }
+                jsonArray.put(obj)
+            }
+
+            val endpoint = "$supabaseUrl/rest/v1/${ZomorrodSupabaseConfig.Tables.CARPET_ITEMS}"
+            val body = jsonArray.toString().toRequestBody(jsonMediaType)
+            val request = Request.Builder()
+                .url(endpoint)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $anonKey")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { it.isSuccessful || it.code in 200..299 }
+        } catch (e: Exception) {
+            Log.e("SupabaseManager", "Error upserting carpet items", e)
+            false
+        }
+    }
+
+
+    /**
      * دریافت لیست سفارشات محول‌شده به راننده از Supabase
      */
     suspend fun fetchDriverOrders(driverId: String): List<SupabaseOrderDto> = withContext(Dispatchers.IO) {
@@ -241,47 +285,98 @@ class ZomorrodSupabaseManager(
 
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
-                    val body = response.body?.string() ?: "[]"
-                    val jsonArray = JSONArray(body)
-                    val list = mutableListOf<SupabaseOrderDto>()
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        list.add(
-                            SupabaseOrderDto(
-                                id = obj.optString("id"),
-                                tracking_code = obj.optString("tracking_code"),
-                                customer_name = obj.optString("customer_name"),
-                                customer_phone = obj.optString("customer_phone"),
-                                customer_address = obj.optString("customer_address"),
-                                lat = obj.optDouble("lat", 35.779),
-                                lng = obj.optDouble("lng", 51.405),
-                                stage = obj.optString("stage", "pickup_assigned"),
-                                status = obj.optString("status", "ASSIGNED"),
-                                order_type = obj.optString("order_type", "PICKUP"),
-                                driver_id = obj.optString("driver_id", driverId),
-                                driver_name = obj.optString("driver_name", "سفیر زمرد"),
-                                total_amount = obj.optLong("total_amount", 0L),
-                                discount_amount = obj.optLong("discount_amount", 0L),
-                                final_payable = obj.optLong("final_payable", 0L),
-                                paid_amount = obj.optLong("paid_amount", 0L),
-                                payment_method = obj.optString("payment_method", "POS"),
-                                payment_status = obj.optString("payment_status", "unpaid"),
-                                rack_code = obj.optString("rack_code", ""),
-                                clean_rack_code = obj.optString("clean_rack_code", ""),
-                                return_reason = obj.optString("return_reason", ""),
-                                customer_signature_url = obj.optString("customer_signature_url", ""),
-                                notes = obj.optString("notes", ""),
-                                updated_at = obj.optString("updated_at", null)
+                    val body = response.body?.string()?.trim() ?: ""
+                    if (body.startsWith("[") && body.endsWith("]")) {
+                        val jsonArray = JSONArray(body)
+                        val list = mutableListOf<SupabaseOrderDto>()
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.optJSONObject(i) ?: continue
+                            list.add(
+                                SupabaseOrderDto(
+                                    id = obj.optString("id"),
+                                    tracking_code = obj.optString("tracking_code"),
+                                    customer_name = obj.optString("customer_name"),
+                                    customer_phone = obj.optString("customer_phone"),
+                                    customer_address = obj.optString("customer_address"),
+                                    lat = obj.optDouble("lat", 35.779),
+                                    lng = obj.optDouble("lng", 51.405),
+                                    stage = obj.optString("stage", "pickup_assigned"),
+                                    status = obj.optString("status", "ASSIGNED"),
+                                    order_type = obj.optString("order_type", "PICKUP"),
+                                    driver_id = obj.optString("driver_id", driverId),
+                                    driver_name = obj.optString("driver_name", "سفیر زمرد"),
+                                    total_amount = obj.optLong("total_amount", 0L),
+                                    discount_amount = obj.optLong("discount_amount", 0L),
+                                    final_payable = obj.optLong("final_payable", 0L),
+                                    paid_amount = obj.optLong("paid_amount", 0L),
+                                    payment_method = obj.optString("payment_method", "POS"),
+                                    payment_status = obj.optString("payment_status", "unpaid"),
+                                    rack_code = obj.optString("rack_code", ""),
+                                    clean_rack_code = obj.optString("clean_rack_code", ""),
+                                    return_reason = obj.optString("return_reason", ""),
+                                    customer_signature_url = obj.optString("customer_signature_url", ""),
+                                    notes = obj.optString("notes", ""),
+                                    updated_at = obj.optString("updated_at", null)
+                                )
                             )
-                        )
+                        }
+                        list
+                    } else {
+                        emptyList()
                     }
-                    list
                 } else {
                     emptyList()
                 }
             }
         } catch (e: Exception) {
-            Log.e("SupabaseManager", "Error fetching driver orders", e)
+            Log.d("SupabaseManager", "Notice: Server response for orders: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * دریافت جدیدترین پیام‌های چت و دیسپچر از Supabase
+     */
+    suspend fun fetchChatMessages(driverId: String = "DRV-101"): List<SupabaseChatMessageDto> = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "$supabaseUrl/rest/v1/${ZomorrodSupabaseConfig.Tables.CHAT_MESSAGES}?select=*&order=timestamp.desc&limit=30"
+            val request = Request.Builder()
+                .url(endpoint)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $anonKey")
+                .addHeader("Accept", "application/json")
+                .get()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()?.trim() ?: ""
+                    if (body.startsWith("[") && body.endsWith("]")) {
+                        val jsonArray = JSONArray(body)
+                        val list = mutableListOf<SupabaseChatMessageDto>()
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.optJSONObject(i) ?: continue
+                            list.add(
+                                SupabaseChatMessageDto(
+                                    id = obj.optString("id", ""),
+                                    driver_id = obj.optString("driver_id", driverId),
+                                    sender = obj.optString("sender", "DISPATCHER"),
+                                    sender_name = obj.optString("sender_name", "مرکز دیسپچینگ زمرد"),
+                                    text = obj.optString("text", ""),
+                                    timestamp = obj.optString("timestamp", System.currentTimeMillis().toString())
+                                )
+                            )
+                        }
+                        list
+                    } else {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            Log.d("SupabaseManager", "Notice: Server response for chat: ${e.message}")
             emptyList()
         }
     }

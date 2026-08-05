@@ -1,17 +1,17 @@
 package com.example.utils
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 class RealGpsManager(private val context: Context) {
 
@@ -48,8 +48,26 @@ class RealGpsManager(private val context: Context) {
         this.onLocationReceived = callback
     }
 
+    fun hasLocationPermission(): Boolean {
+        val fineLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarseLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fineLocation || coarseLocation
+    }
+
     @SuppressLint("MissingPermission")
     fun startTracking(): Boolean {
+        if (!hasLocationPermission()) {
+            Log.d("RealGpsManager", "Location permission is not yet granted. Waiting for user approval.")
+            _isGpsActive.value = false
+            return false
+        }
+
         try {
             val lm = locationManager ?: return false
             val isGpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
@@ -91,11 +109,11 @@ class RealGpsManager(private val context: Context) {
             _isGpsActive.value = true
             return true
         } catch (e: SecurityException) {
-            Log.e("RealGpsManager", "Location permission missing: ${e.message}")
+            Log.d("RealGpsManager", "Location permission missing or revoked: ${e.message}")
             _isGpsActive.value = false
             return false
         } catch (e: Exception) {
-            Log.e("RealGpsManager", "Error starting location tracking: ${e.message}")
+            Log.w("RealGpsManager", "Error starting location tracking: ${e.message}")
             _isGpsActive.value = false
             return false
         }
@@ -105,7 +123,7 @@ class RealGpsManager(private val context: Context) {
         try {
             locationManager?.removeUpdates(locationListener)
         } catch (e: Exception) {
-            Log.e("RealGpsManager", "Error stopping location tracking: ${e.message}")
+            Log.w("RealGpsManager", "Error stopping location tracking: ${e.message}")
         } finally {
             _isGpsActive.value = false
         }

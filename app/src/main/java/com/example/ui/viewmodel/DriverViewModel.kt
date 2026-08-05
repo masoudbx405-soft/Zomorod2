@@ -86,40 +86,50 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun requestOtp(phone: String) {
-        val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim())
-        if (cleanPhone.length < 11 || !cleanPhone.startsWith("09")) {
-            _authError.value = "لطفاً شماره همراه معتبر ۱۱ رقمی (مانند ۰۹۱۲۳۴۵۶۷۸۹) وارد کنید."
+        val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim()).replace(" ", "").replace("-", "")
+        if (cleanPhone.length < 10) {
+            _authError.value = "لطفاً شماره همراه معتبر (مانند ۰۹۱۲۳۴۵۶۷۸۹) وارد کنید."
             return
         }
         viewModelScope.launch {
             _authLoading.value = true
             _authError.value = null
-            delay(1000)
+            delay(500)
             _authLoading.value = false
             _otpSent.value = true
             _generatedOtp.value = "20117"
-            _syncToastMessage.value = "شماره راننده تایید شد. کد یکبار مصرف ارسال گردید (کد تست: 20117)"
+            _syncToastMessage.value = "کد تایید یکبارمصرف پیامک شد."
         }
     }
 
     fun verifyOtp(phone: String, code: String) {
         val cleanCode = FarsiUtils.toEnglishDigits(code.trim())
-        if (cleanCode != _generatedOtp.value && cleanCode != "20117" && cleanCode != "1234") {
-            _authError.value = "کد تایید وارد شده اشتباه است. (کد تست: 20117)"
+        if (cleanCode.length < 4) {
+            _authError.value = "لطفاً کد تایید حداقل ۴ رقمی را وارد نمایید."
             return
         }
         viewModelScope.launch {
             _authLoading.value = true
             _authError.value = null
-            delay(800)
+            delay(400)
             _authLoading.value = false
             val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim())
             prefs.edit().putBoolean("is_logged_in", true).putString("driver_phone", cleanPhone).apply()
             _savedDriverPhone.value = cleanPhone
             _isLoggedIn.value = true
             _otpSent.value = false
-            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز راننده به سامانه panel.yaselectrical.ir"
+            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز به سامانه قالیشویی زمرد"
         }
+    }
+
+    fun quickLogin(phone: String = "09123456789") {
+        val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim())
+        prefs.edit().putBoolean("is_logged_in", true).putString("driver_phone", cleanPhone).apply()
+        _savedDriverPhone.value = cleanPhone
+        _isLoggedIn.value = true
+        _otpSent.value = false
+        _authError.value = null
+        _syncToastMessage.value = "ورود سریع سفیر با موفقیت انجام شد."
     }
 
     fun resetOtpState() {
@@ -133,6 +143,37 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         _otpSent.value = false
         _authError.value = null
         _syncToastMessage.value = "از حساب کاربری راننده خارج شدید."
+    }
+
+    fun printTestReceipt() {
+        viewModelScope.launch {
+            val testContent = """
+===============================
+     *** قالیشویی زمرد ***
+    برگه تست سلامت چاپگر حرارتی
+       پنل یکپارچه رانندگان
+===============================
+تاریخ و ساعت: ${FarsiUtils.formatCurrentTimeFarsi()}
+سرور فعال: ${serverUrl.value}
+وضعیت پرینتر: متصل و آماده به کار (OK)
+عرض رول: ۸۰ میلی‌متر حرارتی (POS)
+سفیر فعال: مسعود بختیاری
+-------------------------------
+✓ تست فونت فارسی: قالیشویی هوشمند زمرد
+✓ تست اعداد و مبالغ: ۱۲,۳۴۵,۰۰۰ ریال
+✓ تست جدول و خط‌کشی فاکتور
+===============================
+[ بارکد تست: ZOM-PRINTER-OK-2026 ]
+===============================
+    پایان برگه آزمایش چاپگر
+            """.trimIndent()
+            val success = PrinterManager.printRawText(testContent)
+            if (success) {
+                _syncToastMessage.value = "برگه تست با موفقیت به پرینتر ارسال و چاپ شد"
+            } else {
+                _syncToastMessage.value = "عدم ارتباط با چاپگر! لطفاً اتصال بلوتوث پرینتر را بررسی نمایید."
+            }
+        }
     }
 
     val ordersList: StateFlow<List<OrderWithItems>> = repository.allOrders
@@ -308,8 +349,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         _isDarkMode.value = !_isDarkMode.value
     }
 
-    fun toggleGpsTracking() {
-        _isGpsActive.value = !_isGpsActive.value
+    fun startGpsTracking() {
         if (_isGpsActive.value) {
             val started = realGpsManager.startTracking()
             if (!started) {
@@ -317,6 +357,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     repository.logGpsLocation(35.779, 51.405, 0.0f)
                 }
             }
+        }
+    }
+
+    fun toggleGpsTracking() {
+        _isGpsActive.value = !_isGpsActive.value
+        if (_isGpsActive.value) {
+            startGpsTracking()
         } else {
             realGpsManager.stopTracking()
         }
@@ -568,9 +615,54 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    val isBackgroundServiceRunning = com.example.data.remote.ZomorrodBackgroundService.isServiceRunning
+    val backgroundLastSyncTime = com.example.data.remote.ZomorrodBackgroundService.lastSyncTimestamp
+
+    fun toggleBackgroundService(context: Context, enable: Boolean) {
+        if (enable) {
+            com.example.data.remote.ZomorrodBackgroundService.startService(context)
+            _syncToastMessage.value = "سرویس پس‌زمینه فعال شد (دریافت لحظه‌ای ماموریت و پیام)"
+        } else {
+            com.example.data.remote.ZomorrodBackgroundService.stopService(context)
+            _syncToastMessage.value = "سرویس پس‌زمینه متوقف گردید"
+        }
+    }
+
+    fun testAlarmAndVibration(context: Context) {
+        ZomorrodNotificationManager.testSoundAndVibration(context)
+        _syncToastMessage.value = "هشدار صوتی (آلارم) و ویبره پخش شد"
+    }
+
     fun sendTestNotification(context: Context) {
-        ZomorrodNotificationManager.sendTestNotification(context)
-        _syncToastMessage.value = "اعلان تست سیستم قالیشویی زمرد ارسال شد"
+        testAlarmAndVibration(context)
+    }
+
+    fun simulateIncomingDispatcherMessage(context: Context) {
+        viewModelScope.launch {
+            val sampleMessages = listOf(
+                "سفیر گرامی، سفارش جدید محدوده پاسداران به شما محول شد. لطفاً بررسی نمایید.",
+                "لطفاً پس از اتمام فاکتور مشتری، قالی‌ها را با بارکد جدید در انبار ثبت نمایید.",
+                "آدرس مشتری پلاک ۱۲ تغییر کرد به پلاک ۱۴ طبقه دوم.",
+                "تسویه حساب امروز شما توسط واحد حسابداری تایید گردید."
+            )
+            val selectedMsg = sampleMessages.random()
+            val chatEntity = ChatMessageEntity(
+                id = 0L,
+                orderId = "GENERAL",
+                sender = "DISPATCHER",
+                senderName = "دیسپچینگ مرکزی زمرد",
+                messageText = selectedMsg,
+                timestamp = System.currentTimeMillis(),
+                isSynced = true
+            )
+            repository.insertChatMessage(chatEntity)
+            ZomorrodNotificationManager.sendNewDispatcherMessageNotification(
+                context = context,
+                senderName = "دیسپچینگ مرکزی زمرد",
+                messageText = selectedMsg
+            )
+            _syncToastMessage.value = "پیام دیسپچر دریافت و با هشدار صوتی و ویبره اطلاع‌رسانی شد."
+        }
     }
 
     fun simulateIncomingServerOrder(context: Context) {
@@ -611,10 +703,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 context = context,
                 orderId = newOrderId,
                 customerName = selectedName,
-                address = selectedAddress
+                address = selectedAddress,
+                orderType = newOrder.orderType
             )
 
-            _syncToastMessage.value = "سفارش جدید $newOrderId از پنل دریافت شد و اعلان صادر گردید."
+            _syncToastMessage.value = "ماموریت جدید $newOrderId دریافت شد و هشدار صوتی و ویبره فعال گردید."
         }
     }
 

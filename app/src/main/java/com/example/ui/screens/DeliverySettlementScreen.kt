@@ -500,39 +500,44 @@ fun DeliveryOrderCard(
     val isSettled = order.status == "DELIVERED_SETTLED"
 
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSettled) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = if (isSettled) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (isSettled) Color(0xFF16A34A).copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Invoice ID & Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = CleanBluePrimary
                     ) {
                         Text(
-                            text = "ایستگاه شماره ${order.routeOrder}",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            text = "فاکتور ${order.id}",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            fontSize = 12.sp,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "کد: ${order.id}",
+                        text = order.customerName,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -541,35 +546,113 @@ fun DeliveryOrderCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Text(text = "نام تحویل‌گیرنده: ${order.customerName}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Text(text = "تلفن: ${order.customerPhone}", fontSize = 13.sp)
-            Text(text = "آدرس: ${order.address}", fontSize = 12.sp)
+            // Phone
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = CleanBlueContainer,
+                    modifier = Modifier.size(26.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = CleanBluePrimary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = FarsiUtils.toFarsiDigits(order.customerPhone),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Address
+            Row(verticalAlignment = Alignment.Top) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = Color(0xFFFEE2E2),
+                    modifier = Modifier.size(26.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = order.address,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 17.sp
+                )
+            }
 
             if (order.rackCode.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.QrCode,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("محل برداشت از انبار: قفسه ${order.rackCode}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = CleanPurpleContainer
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Warehouse,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = CleanPurpleAccent
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "محل برداشت از انبار: قفسه ${order.rackCode}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = CleanPurpleAccent
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             // Carpet items summary
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(10.dp),
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
-                    Text("اقلام این فاکتور (${orderWithItems.items.size} مورد):", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            Icons.Default.Inventory2,
+                            contentDescription = null,
+                            tint = CleanBluePrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "اقلام این فاکتور (${FarsiUtils.toFarsiDigits(orderWithItems.items.size.toString())} تخته فرش):",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
                     orderWithItems.items.forEach { item ->
                         val tag = if (item.barcodeTag.isNotBlank()) item.barcodeTag else "ST-${item.orderId.takeLast(4)}-${item.id}"
                         Row(
@@ -580,20 +663,19 @@ fun DeliveryOrderCard(
                                 .padding(vertical = 2.dp)
                         ) {
                             Text(
-                                text = "• ${item.carpetType} (${item.lengthMeter}×${item.widthMeter} م) - ${item.requestedServicesJson}",
+                                text = "• ${item.carpetType} (${FarsiUtils.toFarsiDigits(item.lengthMeter.toString())}×${FarsiUtils.toFarsiDigits(item.widthMeter.toString())} م)",
                                 fontSize = 11.sp,
                                 modifier = Modifier.weight(1f)
                             )
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = CleanPurpleContainer,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.4f))
+                                color = CleanPurpleAccent
                             ) {
                                 Text(
-                                    text = "📌 $tag",
+                                    text = "کد: $tag",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = CleanPurpleAccent,
+                                    color = Color.White,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
@@ -604,22 +686,38 @@ fun DeliveryOrderCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = CleanBlueContainer.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("مبلغ قابلاخذ:", fontSize = 13.sp)
-                Text(
-                    text = FarsiUtils.formatPrice(order.totalAmount - order.discountAmount),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "مبلغ قابلاخذ:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${FarsiUtils.formatPrice(order.totalAmount - order.discountAmount)} تومان",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = CleanBluePrimary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // Action Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -635,7 +733,7 @@ fun DeliveryOrderCard(
                         .background(CleanBlueContainer)
                 ) {
                     Icon(
-                        Icons.Default.Phone,
+                        Icons.Default.Call,
                         contentDescription = "تماس با مشتری",
                         tint = CleanBluePrimary,
                         modifier = Modifier.size(20.dp)
@@ -652,7 +750,7 @@ fun DeliveryOrderCard(
                         .background(Color(0xFFDCFCE7))
                 ) {
                     Icon(
-                        Icons.Default.Navigation,
+                        Icons.Default.TurnRight,
                         contentDescription = "مسیریابی نشان",
                         tint = Color(0xFF16A34A),
                         modifier = Modifier.size(20.dp)
@@ -684,12 +782,12 @@ fun DeliveryOrderCard(
                             .weight(1f)
                             .height(42.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(CleanPurpleContainer)
+                            .background(Color(0xFFFEF3C7))
                     ) {
                         Icon(
-                            Icons.Default.Warehouse,
+                            Icons.Default.Undo,
                             contentDescription = "عدم حضور مشتری / برگشت به انبار",
-                            tint = CleanPurpleAccent,
+                            tint = Color(0xFFD97706),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -698,17 +796,29 @@ fun DeliveryOrderCard(
                     IconButton(
                         onClick = onSettleClick,
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(1.2f)
                             .height(42.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(CleanBluePrimary)
                     ) {
-                        Icon(
-                            Icons.Default.Payment,
-                            contentDescription = "تسویه و تحویل",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Payments,
+                                contentDescription = "تسویه و تحویل",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "تسویه",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 } else {
                     // View Receipt
@@ -718,14 +828,26 @@ fun DeliveryOrderCard(
                             .weight(1.5f)
                             .height(42.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(Color(0xFFDCFCE7))
                     ) {
-                        Icon(
-                            Icons.Default.Receipt,
-                            contentDescription = "مشاهده رسید تسویه",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.ReceiptLong,
+                                contentDescription = "مشاهده رسید تسویه",
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "رسید",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A)
+                            )
+                        }
                     }
                 }
             }

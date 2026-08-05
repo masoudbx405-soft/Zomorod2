@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
 import com.example.data.model.ScanStage
 import com.example.ui.components.BarcodeScannerModal
+import com.example.ui.components.RealisticOrderMapPreview
 import com.example.ui.theme.*
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
@@ -578,254 +579,310 @@ private fun DeliveryReadyCard(
     val rackCode = if (order.rackCode.isNotBlank()) order.rackCode else "قفسه A-01"
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) CleanBlueContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) CleanBlueContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surface
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) CleanBluePrimary else MaterialTheme.colorScheme.outlineVariant
+            color = if (isSelected) CleanBluePrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 2.5.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCardClick() }
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header Row: Invoice ID, Customer Name, Rack Code Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Realistic Attached Map Preview
+            RealisticOrderMapPreview(
+                customerName = order.customerName,
+                address = order.address,
+                orderId = order.id,
+                latitude = order.latitude,
+                longitude = order.longitude,
+                heightDp = 135,
+                isDeliveryMode = true,
+                onNavigate = onNavigate
+            )
+
+            Column(modifier = Modifier.padding(14.dp)) {
+                // Header Row: Invoice ID, Customer Name, Rack Code Badge
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CleanBluePrimary
+                        ) {
+                            Text(
+                                text = "فاکتور ${order.id}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = order.customerName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Prominent Warehouse Rack Code Badge
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = CleanPurpleContainer,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Warehouse,
+                                contentDescription = null,
+                                tint = CleanPurpleAccent,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "قفسه: $rackCode",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CleanPurpleAccent
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Customer Phone
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = CleanBluePrimary
+                        shape = CircleShape,
+                        color = CleanBlueContainer,
+                        modifier = Modifier.size(26.dp)
                     ) {
-                        Text(
-                            text = "فاکتور ${order.id}",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = order.customerName,
+                        text = FarsiUtils.toFarsiDigits(order.customerPhone),
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
-                // Prominent Warehouse Rack Code Badge
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = CleanPurpleContainer,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.6f))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Customer Address
+                Row(verticalAlignment = Alignment.Top) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFEE2E2),
+                        modifier = Modifier.size(26.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Warehouse,
-                            contentDescription = null,
-                            tint = CleanPurpleAccent,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "قفسه: $rackCode",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CleanPurpleAccent
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Customer Phone & Address
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Phone,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = FarsiUtils.toFarsiDigits(order.customerPhone),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier
-                        .size(14.dp)
-                        .padding(top = 2.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = order.address,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 15.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Carpets & Stapled Barcodes Section
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "اقلام آماده بارگیری (${items.size} تخته فرش):",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = order.address,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 17.sp
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                    items.forEachIndexed { idx, carpet ->
-                        val stapleTag = if (carpet.barcodeTag.isNotBlank()) carpet.barcodeTag else "ST-${carpet.orderId.takeLast(4)}-${carpet.id}"
-                        Column(modifier = Modifier.padding(vertical = 3.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${FarsiUtils.toFarsiDigits((idx + 1).toString())}. ${carpet.carpetType} (${FarsiUtils.toFarsiDigits(carpet.lengthMeter.toString())}×${FarsiUtils.toFarsiDigits(carpet.widthMeter.toString())} م)",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                // Carpets & Stapled Barcodes Section
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                Icons.Default.Inventory2,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "اقلام آماده بارگیری (${FarsiUtils.toFarsiDigits(items.size.toString())} تخته فرش):",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = CleanPurpleAccent
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        items.forEachIndexed { idx, carpet ->
+                            val stapleTag = if (carpet.barcodeTag.isNotBlank()) carpet.barcodeTag else "ST-${carpet.orderId.takeLast(4)}-${carpet.id}"
+                            Column(modifier = Modifier.padding(vertical = 3.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "کد فرش: $stapleTag",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        text = "${FarsiUtils.toFarsiDigits((idx + 1).toString())}. ${carpet.carpetType} (${FarsiUtils.toFarsiDigits(carpet.lengthMeter.toString())}×${FarsiUtils.toFarsiDigits(carpet.widthMeter.toString())} م)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
+
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = CleanPurpleAccent
+                                    ) {
+                                        Text(
+                                            text = "کد فرش: $stapleTag",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                Spacer(modifier = Modifier.height(10.dp))
 
-            // Icon-Only Action Buttons Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 1. Direct Phone Call
-                IconButton(
-                    onClick = { NavigationUtils.makePhoneCall(context, order.customerPhone) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CleanBlueContainer)
+                // Action Buttons Row (Unified and aligned with other screens)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = "تماس با مشتری",
-                        tint = CleanBluePrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    // 1. Direct Phone Call
+                    IconButton(
+                        onClick = { NavigationUtils.makePhoneCall(context, order.customerPhone) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CleanBlueContainer)
+                    ) {
+                        Icon(
+                            Icons.Default.Call,
+                            contentDescription = "تماس با مشتری",
+                            tint = CleanBluePrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                // 2. Neshan Navigation
-                IconButton(
-                    onClick = onNavigate,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFDCFCE7))
-                ) {
-                    Icon(
-                        Icons.Default.Navigation,
-                        contentDescription = "مسیریابی نشان",
-                        tint = Color(0xFF16A34A),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    // 2. Neshan Navigation
+                    IconButton(
+                        onClick = onNavigate,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFDCFCE7))
+                    ) {
+                        Icon(
+                            Icons.Default.TurnRight,
+                            contentDescription = "مسیریابی نشان",
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                // 3. Scan Barcode
-                IconButton(
-                    onClick = onOpenScanner,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CleanPurpleContainer)
-                ) {
-                    Icon(
-                        Icons.Default.QrCodeScanner,
-                        contentDescription = "اسکن بارکد",
-                        tint = CleanPurpleAccent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    // 3. Scan Barcode
+                    IconButton(
+                        onClick = onOpenScanner,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CleanPurpleContainer)
+                    ) {
+                        Icon(
+                            Icons.Default.QrCodeScanner,
+                            contentDescription = "اسکن بارکد",
+                            tint = CleanPurpleAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                // 4. Return to Clean Warehouse (Customer Absent)
-                IconButton(
-                    onClick = onReturnToCleanWarehouseClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CleanPurpleContainer)
-                ) {
-                    Icon(
-                        Icons.Default.Warehouse,
-                        contentDescription = "عدم حضور مشتری / برگشت به انبار",
-                        tint = CleanPurpleAccent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    // 4. Return to Clean Warehouse (Customer Absent)
+                    IconButton(
+                        onClick = onReturnToCleanWarehouseClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFEF3C7))
+                    ) {
+                        Icon(
+                            Icons.Default.Undo,
+                            contentDescription = "عدم حضور مشتری / برگشت به انبار",
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
 
-                // 5. Proceed to Settlement
-                IconButton(
-                    onClick = onProceedToSettlement,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(CleanBluePrimary)
-                ) {
-                    Icon(
-                        Icons.Default.Payment,
-                        contentDescription = "تحویل و تسویه فاکتور",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    // 5. Proceed to Settlement
+                    IconButton(
+                        onClick = onProceedToSettlement,
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CleanBluePrimary)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Payments,
+                                contentDescription = "تحویل و تسویه فاکتور",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "تسویه",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }

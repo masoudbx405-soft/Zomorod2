@@ -15,6 +15,7 @@ import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.SyncQueueEntity
 import com.example.data.local.model.OrderWithItems
 import com.example.data.remote.SupabaseSyncService
+import com.example.data.remote.supabase.toEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -28,6 +29,15 @@ class ZomorrodRepository(
     private val driverDao: DriverDao? = null,
     private val driverSettlementDao: DriverSettlementDao? = null
 ) {
+    constructor(database: com.example.data.local.ZomorrodDatabase) : this(
+        orderDao = database.orderDao(),
+        chatMessageDao = database.chatMessageDao(),
+        gpsLogDao = database.gpsLogDao(),
+        syncQueueDao = database.syncQueueDao(),
+        driverDao = database.driverDao(),
+        driverSettlementDao = database.driverSettlementDao()
+    )
+
     val supabaseService = SupabaseSyncService()
 
     val allOrders: Flow<List<OrderWithItems>> = orderDao.getAllOrdersWithItems()
@@ -279,6 +289,12 @@ class ZomorrodRepository(
         }
     }
 
+    suspend fun insertChatMessage(msg: ChatMessageEntity) {
+        withContext(Dispatchers.IO) {
+            chatMessageDao.insertMessage(msg)
+        }
+    }
+
     suspend fun logGpsLocation(lat: Double, lng: Double, speedKmh: Float, batteryLevel: Int = 85) {
         withContext(Dispatchers.IO) {
             val log = GpsLogEntity(
@@ -317,10 +333,14 @@ class ZomorrodRepository(
                 }
                 syncQueueDao?.clearSyncedQueue()
 
-                // 2. Sync unsynced orders to Supabase
+                // 2. Sync unsynced orders and their carpet items to Supabase
                 val unsynced = orderDao.getUnsyncedOrders()
                 for (order in unsynced) {
                     supabaseService.pushOrderUpdate(order)
+                    val orderWithItems = orderDao.getOrderWithItemsById(order.id)
+                    if (orderWithItems != null && orderWithItems.items.isNotEmpty()) {
+                        supabaseService.pushCarpetItems(orderWithItems.items)
+                    }
                 }
                 if (unsynced.isNotEmpty()) {
                     orderDao.markOrdersAsSynced(unsynced.map { it.id })
@@ -339,10 +359,123 @@ class ZomorrodRepository(
                     supabaseService.syncTelemetry(driver)
                 }
 
+                // 5. Fetch updated/new orders assigned to this driver from Supabase panel
+                try {
+                    val remoteOrders = supabaseService.fetchAssignedOrders("DRV-101")
+                    if (remoteOrders.isNotEmpty()) {
+                        for (remoteOrder in remoteOrders) {
+                            val localExisting = orderDao.getOrderWithItemsById(remoteOrder.id)
+                            if (localExisting == null) {
+                                orderDao.insertOrder(remoteOrder.toEntity())
+                            } else {
+                                val updated = localExisting.order.copy(
+                                    status = remoteOrder.status,
+                                    stage = remoteOrder.stage,
+                                    totalAmount = if (remoteOrder.total_amount > 0) remoteOrder.total_amount else localExisting.order.totalAmount,
+                                    finalPayable = if (remoteOrder.final_payable > 0) remoteOrder.final_payable else localExisting.order.finalPayable,
+                                    paidAmount = if (remoteOrder.paid_amount > 0) remoteOrder.paid_amount else localExisting.order.paidAmount,
+                                    paymentStatus = remoteOrder.payment_status,
+                                    rackCode = if (remoteOrder.rack_code.isNotBlank()) remoteOrder.rack_code else localExisting.order.rackCode
+                                )
+                                orderDao.updateOrder(updated)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                // 6. Fetch incoming chat/dispatcher messages
+                try {
+                    val remoteMessages = supabaseService.fetchChatMessages("DRV-101")
+                    val localMessages = chatMessageDao?.getAllChatMessagesDirect() ?: emptyList()
+                    val existingKeys = localMessages.map { "${it.messageText}_${it.timestamp}" }.toSet()
+                    for (msg in remoteMessages) {
+                        val entity = msg.toEntity()
+                        val key = "${entity.messageText}_${entity.timestamp}"
+                        if (!existingKeys.contains(key)) {
+                            chatMessageDao?.insertMessage(entity)
+                        }
+                    }
+                } catch (_: Exception) {}
+
                 true
             } catch (e: Exception) {
                 false
             }
+        }
+    }
+
+    suspend fun performBackgroundSync(
+        driverId: String = "DRV-101",
+        onNewOrder: ((OrderEntity) -> Unit)? = null,
+        onNewMessage: ((ChatMessageEntity) -> Unit)? = null
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // 1. Sync telemetry
+            val driver = driverDao?.getDriverDirect(driverId)
+            if (driver != null) {
+                supabaseService.syncTelemetry(driver)
+            }
+
+            // 2. Fetch assigned orders from Supabase web panel
+            try {
+                val remoteOrders = supabaseService.fetchAssignedOrders(driverId)
+                if (remoteOrders.isNotEmpty()) {
+                    for (remoteOrder in remoteOrders) {
+                        val localExisting = orderDao.getOrderWithItemsById(remoteOrder.id)
+                        if (localExisting == null) {
+                            val newEntity = remoteOrder.toEntity()
+                            orderDao.insertOrder(newEntity)
+                            onNewOrder?.invoke(newEntity)
+                        } else {
+                            val updated = localExisting.order.copy(
+                                status = remoteOrder.status,
+                                stage = remoteOrder.stage,
+                                totalAmount = if (remoteOrder.total_amount > 0) remoteOrder.total_amount else localExisting.order.totalAmount,
+                                finalPayable = if (remoteOrder.final_payable > 0) remoteOrder.final_payable else localExisting.order.finalPayable,
+                                paidAmount = if (remoteOrder.paid_amount > 0) remoteOrder.paid_amount else localExisting.order.paidAmount,
+                                paymentStatus = remoteOrder.payment_status,
+                                rackCode = if (remoteOrder.rack_code.isNotBlank()) remoteOrder.rack_code else localExisting.order.rackCode
+                            )
+                            orderDao.updateOrder(updated)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 3. Fetch incoming chat / dispatcher messages from Supabase web panel
+            try {
+                val remoteMessages = supabaseService.fetchChatMessages(driverId)
+                val localMessages = chatMessageDao?.getAllChatMessagesDirect() ?: emptyList()
+                val existingKeys = localMessages.map { "${it.messageText}_${it.timestamp}" }.toSet()
+
+                for (remoteMsg in remoteMessages) {
+                    val entity = remoteMsg.toEntity()
+                    val key = "${entity.messageText}_${entity.timestamp}"
+                    if (!existingKeys.contains(key)) {
+                        chatMessageDao?.insertMessage(entity)
+                        if (entity.sender != "DRIVER") {
+                            onNewMessage?.invoke(entity)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 4. Push local unsynced orders
+            val unsynced = orderDao.getUnsyncedOrders()
+            for (order in unsynced) {
+                supabaseService.pushOrderUpdate(order)
+                val orderWithItems = orderDao.getOrderWithItemsById(order.id)
+                if (orderWithItems != null && orderWithItems.items.isNotEmpty()) {
+                    supabaseService.pushCarpetItems(orderWithItems.items)
+                }
+            }
+            if (unsynced.isNotEmpty()) {
+                orderDao.markOrdersAsSynced(unsynced.map { it.id })
+            }
+
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 

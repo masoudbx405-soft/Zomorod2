@@ -21,9 +21,13 @@ class MainActivity : ComponentActivity() {
 
     private val driverViewModel: DriverViewModel by viewModels()
 
-    private val requestNotificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            // Permission result handled automatically
+    private val requestAppPermissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+            if (fineGranted || coarseGranted) {
+                driverViewModel.startGpsTracking()
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,24 +37,13 @@ class MainActivity : ComponentActivity() {
         // Create notification channel safely
         try {
             ZomorrodNotificationManager.createNotificationChannel(this)
+            com.example.data.remote.ZomorrodBackgroundService.startService(this)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // Request POST_NOTIFICATIONS permission on Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            try {
-                if (ContextCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.POST_NOTIFICATIONS
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // Request runtime permissions gracefully on startup
+        requestRequiredPermissions()
 
         setContent {
             // Safely set status bar behavior inside composable context after window view is attached
@@ -65,6 +58,39 @@ class MainActivity : ComponentActivity() {
                 }
             }
             MainDriverScreen(viewModel = driverViewModel)
+        }
+    }
+
+    private fun requestRequiredPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            requestAppPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+        } else {
+            driverViewModel.startGpsTracking()
         }
     }
 }

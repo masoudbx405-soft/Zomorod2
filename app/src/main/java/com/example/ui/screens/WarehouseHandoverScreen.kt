@@ -147,11 +147,15 @@ private fun WarehouseHandoverCard(
     val quickRacks = listOf("A-01", "A-02", "A-05", "B-01", "B-04", "B-10", "C-03", "D-12")
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isHandedOver) MaterialTheme.colorScheme.surface else CleanPurpleContainer.copy(alpha = 0.25f)
+            containerColor = if (isHandedOver) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (isHandedOver) CleanTealAccent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -164,7 +168,7 @@ private fun WarehouseHandoverCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = CleanPurpleAccent
+                        color = CleanBluePrimary
                     ) {
                         Text(
                             text = "فاکتور ${order.id}",
@@ -178,46 +182,57 @@ private fun WarehouseHandoverCard(
                     Text(
                         text = order.customerName,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 // Status Badge
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isHandedOver) CleanTealContainer else StatusInspectionBg
+                    color = if (isHandedOver) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
                 ) {
                     Text(
-                        text = if (isHandedOver) "تحویل انباردار شد" else "در انتظار تحویل انبار",
+                        text = if (isHandedOver) "تحویل انباردار شد" else "در انتظار تعیین قفسه",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isHandedOver) CleanTealAccent else StatusInspectionText,
+                        color = if (isHandedOver) Color(0xFF16A34A) else Color(0xFFD97706),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Carpet Details Summary
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Inventory2,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "اقلام تحویلی (${FarsiUtils.toFarsiDigits(items.size.toString())} تخته):",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                         Text(
-                            text = "اقلام و فرش‌های تحویلی به انبار (${items.size} تخته):",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "مجموع متراژ: ${FarsiUtils.toFarsiDigits(String.format("%.1f", items.sumOf { it.areaSqMeter }))} م۲",
+                            text = "متراژ: ${FarsiUtils.toFarsiDigits(String.format("%.1f", items.sumOf { it.areaSqMeter }))} م۲",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -244,15 +259,14 @@ private fun WarehouseHandoverCard(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = CleanPurpleContainer,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.4f))
+                                    color = CleanPurpleAccent
                                 ) {
                                     Text(
-                                        text = "📌 $stapleTag",
+                                        text = "کد: $stapleTag",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = CleanPurpleAccent,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
@@ -298,7 +312,7 @@ private fun WarehouseHandoverCard(
                     onValueChange = { rackInput = it.uppercase() },
                     placeholder = { Text("شماره قفسه (مثلاً A-01)", fontSize = 12.sp) },
                     singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.QrCode, contentDescription = null, tint = CleanPurpleAccent) },
+                    leadingIcon = { Icon(Icons.Default.Warehouse, contentDescription = null, tint = CleanPurpleAccent) },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f)
                 )
@@ -337,6 +351,8 @@ private fun WarehouseHandoverCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Action Buttons
             Row(
@@ -353,15 +369,15 @@ private fun WarehouseHandoverCard(
                     enabled = rackInput.isNotBlank(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = CleanPurpleAccent
+                        containerColor = CleanBluePrimary
                     ),
                     modifier = Modifier
                         .weight(1.3f)
                         .height(44.dp)
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("تأیید انباردار & ارسال به پنل", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("تأیید انباردار & ثبت در پنل", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(

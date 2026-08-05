@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.model.OrderWithItems
+import com.example.ui.components.RealisticOrderMapPreview
 import com.example.ui.theme.*
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
@@ -155,16 +156,23 @@ private fun CollectionOrderItemCard(
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // 1. Real Neshan Map Location Preview Box
-            NeshanSingleLocationMapPreview(
+            // 1. Attached Realistic Map Preview with driver & destination route
+            RealisticOrderMapPreview(
                 customerName = order.customerName,
                 address = order.address,
                 orderId = order.id,
+                latitude = order.latitude,
+                longitude = order.longitude,
+                heightDp = 135,
+                isDeliveryMode = false,
                 onNavigate = onNavigate
             )
 
@@ -173,40 +181,73 @@ private fun CollectionOrderItemCard(
                 // Header: Order ID & Customer Name
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CleanBluePrimary
+                        ) {
+                            Text(
+                                text = "فاکتور ${order.id}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = order.customerName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Status Badge
+                    val statusText = when (order.status) {
+                        "ASSIGNED" -> "در انتظار دریافت"
+                        "COLLECTED_IN_INSPECTION" -> "فاکتور ثبت شده"
+                        else -> "آماده دریافت"
+                    }
+                    val statusBg = if (order.status == "ASSIGNED") Color(0xFFFEF3C7) else Color(0xFFDCFCE7)
+                    val statusColor = if (order.status == "ASSIGNED") Color(0xFFD97706) else Color(0xFF16A34A)
+
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = CleanPurpleAccent
+                        shape = RoundedCornerShape(10.dp),
+                        color = statusBg
                     ) {
                         Text(
-                            text = "سفارش ${order.id}",
+                            text = statusText,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = Color.White,
+                            color = statusColor,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = order.customerName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Phone
+                // Customer Phone
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = CleanBlueContainer,
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = FarsiUtils.toFarsiDigits(order.customerPhone),
                         fontSize = 13.sp,
@@ -217,17 +258,23 @@ private fun CollectionOrderItemCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Address
+                // Customer Address
                 Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color.Gray,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .padding(top = 2.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFEE2E2),
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = order.address,
                         fontSize = 12.sp,
@@ -241,7 +288,7 @@ private fun CollectionOrderItemCard(
                     Spacer(modifier = Modifier.height(8.dp))
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = CleanPurpleContainer.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -253,9 +300,9 @@ private fun CollectionOrderItemCard(
                                 text = "تعداد اقلام ثبت شده: ${FarsiUtils.toFarsiDigits(itemCount.toString())} تخته فرش",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = CleanPurpleAccent
+                                color = CleanBluePrimary
                             )
-                            Icon(Icons.Default.Check, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -264,34 +311,13 @@ private fun CollectionOrderItemCard(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Bottom Row: Status Badge + Action Icon Buttons (Call, Navigation, Register Invoice - NO TEXT LABELS)
-                val statusText = when (order.status) {
-                    "ASSIGNED" -> "جدید / در انتظار مراجعه"
-                    "COLLECTED_IN_INSPECTION" -> "فاکتور ثبت شده"
-                    else -> "آماده دریافت"
-                }
-                val statusColor = if (order.status == "ASSIGNED") Color(0xFFF57C00) else CleanPurpleAccent
-
+                // Bottom Row: Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Moved Status Badge to bottom
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = statusColor.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = statusText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-
-                    // Single Row of Icon-Only Action Buttons (No text labels)
+                    // Quick Icon Buttons (Call & Neshan Navigation)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -324,181 +350,35 @@ private fun CollectionOrderItemCard(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Default.Navigation,
+                                    Icons.Default.TurnRight,
                                     contentDescription = "مسیریابی نشان",
                                     tint = Color(0xFF16A34A),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-
-                        // 3. Register Invoice / Add Carpets Icon Button
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = CleanPurpleContainer,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clickable { onRegisterInvoice() }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.ReceiptLong,
-                                    contentDescription = "ثبت/ویرایش فاکتور",
-                                    tint = CleanPurpleAccent,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
                     }
-                }
-            }
-        }
-    }
-}
 
-/**
- * Mini Map Preview for an individual order location pinned on Neshan Map style.
- * Fully synchronized with Neshan Map API structure. Static layout without animations.
- */
-@Composable
-private fun NeshanSingleLocationMapPreview(
-    customerName: String,
-    address: String,
-    orderId: String,
-    onNavigate: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(130.dp)
-            .background(Color(0xFFE2E2DC))
-    ) {
-        val roadColor = Color(0xFFFFFFFF)
-        val mainRoadColor = Color(0xFFFDE047)
-        val buildingColor = Color(0xFFCECED6)
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-
-            // Background city blocks
-            drawRoundRect(
-                color = buildingColor,
-                topLeft = Offset(w * 0.05f, h * 0.1f),
-                size = Size(w * 0.38f, h * 0.38f),
-                cornerRadius = CornerRadius(6f, 6f)
-            )
-            drawRoundRect(
-                color = buildingColor,
-                topLeft = Offset(w * 0.5f, h * 0.1f),
-                size = Size(w * 0.45f, h * 0.32f),
-                cornerRadius = CornerRadius(6f, 6f)
-            )
-            drawRoundRect(
-                color = buildingColor,
-                topLeft = Offset(w * 0.08f, h * 0.58f),
-                size = Size(w * 0.42f, h * 0.35f),
-                cornerRadius = CornerRadius(6f, 6f)
-            )
-            drawRoundRect(
-                color = buildingColor,
-                topLeft = Offset(w * 0.58f, h * 0.52f),
-                size = Size(w * 0.35f, h * 0.4f),
-                cornerRadius = CornerRadius(6f, 6f)
-            )
-
-            // Secondary roads
-            drawLine(roadColor, Offset(0f, h * 0.5f), Offset(w, h * 0.5f), strokeWidth = 14f)
-            drawLine(roadColor, Offset(w * 0.48f, 0f), Offset(w * 0.48f, h), strokeWidth = 14f)
-
-            // Main Avenue (Yellow)
-            drawLine(mainRoadColor, Offset(0f, h * 0.22f), Offset(w, h * 0.22f), strokeWidth = 18f)
-        }
-
-        // Neshan Pinned Location Badge (Center Overlay) - Static without animation
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1E293B),
-                shadowElevation = 6.dp,
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF22C55E))
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF22C55E),
-                        modifier = Modifier.size(20.dp)
+                    // 3. Register Invoice Action Button
+                    Button(
+                        onClick = onRegisterInvoice,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.height(42.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.PinDrop, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                        }
+                        Icon(
+                            Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (itemCount > 0) "ویرایش اقلام فاکتور" else "ثبت اقلام و دریافت",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "پین آدرس: $customerName",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        // Top-Left Neshan API Brand Label
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(8.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF22C55E)
-            ) {
-                Text(
-                    text = "نقشه نشان (API)",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-        }
-
-        // Bottom-Right Quick Navigation Icon Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(8.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF22C55E),
-                shadowElevation = 4.dp,
-                modifier = Modifier.clickable { onNavigate() }
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Navigation,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "مسیریابی",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
         }

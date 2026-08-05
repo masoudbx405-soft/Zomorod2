@@ -168,3 +168,89 @@ fun ChatMessageEntity.toSupabaseDto(): SupabaseChatMessageDto {
         timestamp = this.timestamp.toString()
     )
 }
+
+/**
+ * مدل داده‌ای اقلام فرش (جدول carpet_items در Supabase)
+ */
+data class SupabaseCarpetItemDto(
+    val id: Long,
+    val order_id: String,
+    val carpet_type: String,
+    val length_meter: Double,
+    val width_meter: Double,
+    val area_sq_meter: Double,
+    val unit_price: Long,
+    val requested_services: String,
+    val defects: String,
+    val total_price: Long,
+    val notes: String = "",
+    val barcode_tag: String = ""
+)
+
+fun com.example.data.local.entities.CarpetItemEntity.toSupabaseDto(): SupabaseCarpetItemDto {
+    return SupabaseCarpetItemDto(
+        id = this.id,
+        order_id = this.orderId,
+        carpet_type = this.carpetType,
+        length_meter = this.lengthMeter,
+        width_meter = this.widthMeter,
+        area_sq_meter = this.areaSqMeter,
+        unit_price = this.unitPricePerMeter,
+        requested_services = this.requestedServicesJson,
+        defects = this.defectsJson,
+        total_price = this.totalPrice,
+        notes = this.notes,
+        barcode_tag = this.barcodeTag
+    )
+}
+
+fun SupabaseOrderDto.toEntity(): OrderEntity {
+    return OrderEntity(
+        id = this.id,
+        orderSequence = 1,
+        trackingCode = if (this.tracking_code.isNotBlank()) this.tracking_code else this.id,
+        subscriptionCode = "SUB-${this.id.takeLast(4)}",
+        customerName = this.customer_name,
+        customerPhone = this.customer_phone,
+        address = this.customer_address,
+        notes = this.notes,
+        latitude = this.lat,
+        longitude = this.lng,
+        orderType = this.order_type,
+        status = this.status,
+        stage = this.stage,
+        totalAmount = this.total_amount,
+        discountAmount = this.discount_amount,
+        paidAmount = this.paid_amount,
+        finalPayable = if (this.final_payable > 0) this.final_payable else (this.total_amount - this.discount_amount).coerceAtLeast(0L),
+        paymentMethod = this.payment_method,
+        paymentStatus = this.payment_status,
+        driverId = this.driver_id,
+        driverName = this.driver_name,
+        rackCode = this.rack_code,
+        cleanRackCode = this.clean_rack_code,
+        returnReason = this.return_reason,
+        customerSignatureUrl = this.customer_signature_url,
+        isSynced = true,
+        updatedAt = System.currentTimeMillis()
+    )
+}
+
+fun SupabaseChatMessageDto.toEntity(): ChatMessageEntity {
+    val ts = try {
+        timestamp.toLongOrNull() ?: System.currentTimeMillis()
+    } catch (_: Exception) {
+        System.currentTimeMillis()
+    }
+    return ChatMessageEntity(
+        id = 0L,
+        orderId = if (this.driver_id.isNotBlank()) this.driver_id else "GENERAL",
+        sender = if (this.sender.equals("driver", ignoreCase = true) || this.sender.equals("DRIVER", ignoreCase = true)) "DRIVER" else "DISPATCHER",
+        senderName = if (this.sender_name.isNotBlank()) this.sender_name else "دیسپچینگ مرکزی زمرد",
+        messageText = this.text,
+        timestamp = ts,
+        isSynced = true
+    )
+}
+
+

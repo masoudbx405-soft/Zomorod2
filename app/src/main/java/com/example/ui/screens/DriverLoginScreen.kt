@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,8 +40,7 @@ fun DriverLoginScreen(
     onResetOtp: () -> Unit,
     otpSent: Boolean,
     isLoading: Boolean,
-    errorMessage: String?,
-    generatedOtpCode: String
+    errorMessage: String?
 ) {
     var phoneNumber by remember { mutableStateOf("09123456789") }
     var otpCode by remember { mutableStateOf("") }
@@ -171,7 +171,7 @@ fun DriverLoginScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "تایید شماره همراه برای اولین ورود به اپلیکیشن",
+                        text = "احراز هویت و ورود به پنل عملیاتی رانندگان",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -213,7 +213,7 @@ fun DriverLoginScreen(
                         // Step 1: Phone Number Input
                         OutlinedTextField(
                             value = phoneNumber,
-                            onValueChange = { if (it.length <= 11) phoneNumber = it },
+                            onValueChange = { phoneNumber = it },
                             label = { Text("شماره همراه راننده (مثال: ۰۹۱۲۳۴۵۶۷۸۹)", fontSize = 12.sp) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -232,7 +232,7 @@ fun DriverLoginScreen(
                             )
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -251,7 +251,7 @@ fun DriverLoginScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "شماره همراه شما ابتدا در پنل مرکزی قالیشویی استعلام و تایید می‌شود.",
+                                    text = "شماره همراه سفیر در پنل مرکزی زمرد استعلام شده و کد یکبارمصرف ارسال می‌شود.",
                                     fontSize = 11.sp,
                                     color = CleanBlueOnContainer,
                                     lineHeight = 16.sp
@@ -259,11 +259,11 @@ fun DriverLoginScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { onSendOtp(phoneNumber) },
-                            enabled = !isLoading && phoneNumber.length >= 11,
+                            enabled = !isLoading && phoneNumber.isNotBlank(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
@@ -282,7 +282,7 @@ fun DriverLoginScreen(
                                 Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "استعلام شماره و ارسال کد تایید",
+                                    text = "استعلام شماره و دریافت کد تایید",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -319,12 +319,13 @@ fun DriverLoginScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         OutlinedTextField(
                             value = otpCode,
                             onValueChange = { if (it.length <= 6) otpCode = it },
-                            label = { Text("کد تایید یکبارمصرف (کد تست: ۲۰۱۱۷)", fontSize = 12.sp) },
+                            label = { Text("کد تایید یکبارمصرف پیامک‌شده", fontSize = 12.sp) },
+                            placeholder = { Text("مثال: ۱۲۳۴ یا ۲۰۱۱۷", fontSize = 11.sp, color = Color.Gray) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             leadingIcon = {
@@ -349,72 +350,11 @@ fun DriverLoginScreen(
                             )
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Test Badge & Quick Fill for OTP 20117
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = CleanPurpleContainer,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.VpnKey,
-                                        contentDescription = null,
-                                        tint = CleanPurpleAccent,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "کد احراز هویت پیامک‌شده / عمومی: ${FarsiUtils.toFarsiDigits(generatedOtpCode.ifEmpty { "20117" })}",
-                                        fontSize = 11.sp,
-                                        color = CleanPurpleAccent,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { otpCode = "20117" },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.ContentPaste, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("درج کد 20117", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CleanPurpleAccent)
-                                    }
-
-                                    OutlinedButton(
-                                        onClick = { otpCode = "1234" },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.ContentPaste, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("درج کد 1234", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CleanBluePrimary)
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { onVerifyOtp(phoneNumber, otpCode) },
-                            enabled = !isLoading && otpCode.length >= 4,
+                            enabled = !isLoading && otpCode.isNotBlank(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
@@ -433,11 +373,22 @@ fun DriverLoginScreen(
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "تایید و ورود یکبارمصرف به اپ رانندگان",
+                                    text = "تایید و ورود به اپ رانندگان",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        TextButton(
+                            onClick = { onSendOtp(phoneNumber) },
+                            enabled = !isLoading
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ارسال مجدد کد پیامکی", fontSize = 12.sp, color = CleanBluePrimary)
                         }
                     }
                 }

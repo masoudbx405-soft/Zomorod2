@@ -40,7 +40,12 @@ class SupabaseSyncService(
         return supabaseManager.upsertOrder(order)
     }
 
+    suspend fun pushCarpetItems(items: List<com.example.data.local.entities.CarpetItemEntity>): Boolean {
+        return supabaseManager.upsertCarpetItems(items)
+    }
+
     suspend fun pushDriverSettlement(settlement: DriverSettlementEntity): Boolean {
+
         return supabaseManager.upsertDriverSettlement(settlement)
     }
 
@@ -50,5 +55,13 @@ class SupabaseSyncService(
 
     suspend fun uploadCustomerSignature(orderId: String, signatureBase64: String): String? {
         return supabaseManager.uploadSignature(orderId, signatureBase64)
+    }
+
+    suspend fun fetchAssignedOrders(driverId: String = "DRV-101"): List<com.example.data.remote.supabase.SupabaseOrderDto> {
+        return supabaseManager.fetchDriverOrders(driverId)
+    }
+
+    suspend fun fetchChatMessages(driverId: String = "DRV-101"): List<com.example.data.remote.supabase.SupabaseChatMessageDto> {
+        return supabaseManager.fetchChatMessages(driverId)
     }
 }
