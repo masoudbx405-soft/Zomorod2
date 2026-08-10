@@ -64,4 +64,8 @@ class SupabaseSyncService(
     suspend fun fetchChatMessages(driverId: String = "DRV-101"): List<com.example.data.remote.supabase.SupabaseChatMessageDto> {
         return supabaseManager.fetchChatMessages(driverId)
     }
+
+    suspend fun fetchServiceCatalog(): List<com.example.data.model.PanelCatalogItem> {
+        return supabaseManager.fetchPanelServiceCatalog()
+    }
 }

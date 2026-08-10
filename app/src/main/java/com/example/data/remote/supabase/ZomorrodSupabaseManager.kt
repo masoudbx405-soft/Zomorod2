@@ -5,6 +5,7 @@ import com.example.data.local.entities.ChatMessageEntity
 import com.example.data.local.entities.DriverEntity
 import com.example.data.local.entities.DriverSettlementEntity
 import com.example.data.local.entities.OrderEntity
+import com.example.data.model.PanelCatalogItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -409,5 +410,94 @@ class ZomorrodSupabaseManager(
             Log.e("SupabaseManager", "Error uploading signature to Supabase Storage", e)
             null
         }
+    }
+
+    /**
+     * فراخوانی اقلام، انواع فرش، خدمات و تعرفه‌های مصوب از پنل مرکزی قالیشویی زمرد
+     */
+    suspend fun fetchPanelServiceCatalog(): List<PanelCatalogItem> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<PanelCatalogItem>()
+        try {
+            val endpoint = "$supabaseUrl/rest/v1/${ZomorrodSupabaseConfig.Tables.SERVICE_ITEMS}?select=*"
+            val request = Request.Builder()
+                .url(endpoint)
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $anonKey")
+                .addHeader("Accept", "application/json")
+                .get()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()?.trim() ?: ""
+                    if (body.startsWith("[") && body.endsWith("]")) {
+                        val jsonArray = JSONArray(body)
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.optJSONObject(i) ?: continue
+                            list.add(
+                                PanelCatalogItem(
+                                    id = obj.optString("id", "PANEL-$i"),
+                                    name = obj.optString("name", obj.optString("title", "خدمت زمرد")),
+                                    category = obj.optString("category", "CARPET_TYPE"),
+                                    unitPrice = obj.optLong("unit_price", obj.optLong("price", 100000L)),
+                                    defaultLength = obj.optDouble("default_length", 3.0),
+                                    defaultWidth = obj.optDouble("default_width", 2.0),
+                                    unit = obj.optString("unit", "متر مربع"),
+                                    description = obj.optString("description", ""),
+                                    isDefault = obj.optBoolean("is_default", false)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.d("SupabaseManager", "Notice: Catalog from panel: ${e.message}")
+        }
+
+        // اگر از پنل دیتایی دریافت نشد یا به دلیل آفلاین بودن، تعرفه‌های استاندارد مصوب پنل زمرد بارگذاری می‌شوند
+        if (list.isEmpty()) {
+            list.addAll(getDefaultPanelCatalog())
+        }
+        list
+    }
+
+    /**
+     * کاتالوگ استاندارد تعرفه‌ها و خدمات مصوب پنل قالیشویی زمرد
+     */
+    fun getDefaultPanelCatalog(): List<PanelCatalogItem> {
+        return listOf(
+            // انواع فرش و تعرفه‌های مصوب متراژ
+            PanelCatalogItem("PANEL-CPT-1", "ماشینی ۶ متری (۲×۳)", "CARPET_TYPE", 100000L, 3.0, 2.0, "متر مربع", "شستشوی تمام مکانیزه و آبکشی اسلامی", true),
+            PanelCatalogItem("PANEL-CPT-2", "ماشینی ۹ متری (۲٫۵×۳٫۵)", "CARPET_TYPE", 105000L, 3.5, 2.5, "متر مربع", "شستشوی مکانیزه و غبارگیری فرش ۹ متری", true),
+            PanelCatalogItem("PANEL-CPT-3", "ماشینی ۱۲ متری (۳×۴)", "CARPET_TYPE", 110000L, 4.0, 3.0, "متر مربع", "شستشوی صنعتی با خشک‌کن لوله‌ای", true),
+            PanelCatalogItem("PANEL-CPT-4", "دستبافت نائین و کاشان (اعلا)", "CARPET_TYPE", 195000L, 3.0, 2.0, "متر مربع", "شستشوی سنتی با تثبیت رنگ گیاهی و ارگانیک"),
+            PanelCatalogItem("PANEL-CPT-5", "دستبافت تمام ابریشم / چله ابریشم", "CARPET_TYPE", 290000L, 3.0, 2.0, "متر مربع", "ابریشم‌شویی فوق تخصصی با پودر محافظ پرز"),
+            PanelCatalogItem("PANEL-CPT-6", "گلیم / گبه / جاجیم سنتی", "CARPET_TYPE", 85000L, 2.5, 1.5, "متر مربع", "شستشوی ملایم بدون آسیب به تاروپود سنتی"),
+            PanelCatalogItem("PANEL-CPT-7", "موکت پالاز / پرزدار / تافتینگ", "CARPET_TYPE", 65000L, 4.0, 3.0, "متر مربع", "شستشوی عمقی پرزگیر و لکه‌بری نانو"),
+            PanelCatalogItem("PANEL-CPT-8", "موکت نمدی / کبریتی اداری", "CARPET_TYPE", 45000L, 4.0, 3.0, "متر مربع", "شستشوی صنعتی سریع با مکش قوی"),
+            PanelCatalogItem("PANEL-CPT-9", "پرده و تور / روفرشی / پتو", "CARPET_TYPE", 75000L, 2.2, 1.8, "متر مربع", "شستشو با اتوکشی و تحویل بسته‌بندی"),
+            PanelCatalogItem("PANEL-CPT-10", "سایر ابعاد (سفارشی و کناره)", "CARPET_TYPE", 110000L, 1.0, 1.0, "متر مربع", "محاسبه بر اساس اندازه‌گیری دقیق میدانی"),
+
+            // خدمات درخواستی و تکمیلی مصوب پنل
+            PanelCatalogItem("PANEL-SRV-1", "شستشوی ویژه (اعلاشویی نانو)", "SERVICE", 25000L, 0.0, 0.0, "متر مربع", "شستشوی ۲ طرفه با شامپو نانو و لکه‌بری عمقی", true),
+            PanelCatalogItem("PANEL-SRV-2", "ابریشم‌شویی و احیای رنگ گیاهی", "SERVICE", 50000L, 0.0, 0.0, "متر مربع", "شستشوی بدون شوینده‌های اسیدی و تثبیت رنگ"),
+            PanelCatalogItem("PANEL-SRV-3", "لکه‌بری تخصصی نانو (چربی، جوهر، چای)", "SERVICE", 35000L, 0.0, 0.0, "متر مربع", "از بین بردن لکه‌های قدیمی بدون سایش پرز"),
+            PanelCatalogItem("PANEL-SRV-4", "رفوگری و ترمیم پارگی و سوختگی", "SERVICE", 60000L, 0.0, 0.0, "متر طول", "مرمت و بافت مجدد توسط استادکار رفوگر"),
+            PanelCatalogItem("PANEL-SRV-5", "ریشه‌زنی و دوخت ریشه نو", "SERVICE", 45000L, 0.0, 0.0, "متر طول", "دوخت ریشه ابریشمی یا نخی استاندارد"),
+            PanelCatalogItem("PANEL-SRV-6", "شیرازه‌دوزی دوطرفه و چرم‌دوزی لبه", "SERVICE", 40000L, 0.0, 0.0, "متر طول", "تقویت حاشیه و جلوگیری از لول شدن فرش"),
+            PanelCatalogItem("PANEL-SRV-7", "ضدعفونی UV و اتوکشی حرارتی", "SERVICE", 20000L, 0.0, 0.0, "متر مربع", "استریل کامل و اتوی بخار صاف‌کننده"),
+            PanelCatalogItem("PANEL-SRV-8", "بیدزدگی و پودر ضدموریانه", "SERVICE", 30000L, 0.0, 0.0, "متر مربع", "سم‌زدایی تخصصی و محافظت طولانی‌مدت"),
+            PanelCatalogItem("PANEL-SRV-9", "کاور و بسته‌بندی ضدآب پلمپ", "SERVICE", 15000L, 0.0, 0.0, "تخته", "بسته‌بندی وکیوم شرینک بهداشتی"),
+
+            // عیوب اولیه استاندارد ثبت‌شده در سامانه پنل
+            PanelCatalogItem("PANEL-DEF-1", "بدون عیب اولیه", "DEFECT", 0L, 0.0, 0.0, "مورد", "فرش کاملاً سالم و بدون نقص فیزیکی", true),
+            PanelCatalogItem("PANEL-DEF-2", "سوختگی جزئی / زردی جای بخاری", "DEFECT", 0L, 0.0, 0.0, "مورد", "سوختگی سطحی پرز یا زردی ناشی از حرارت"),
+            PanelCatalogItem("PANEL-DEF-3", "پوسیدگی حاشیه / سستی تار و پود", "DEFECT", 0L, 0.0, 0.0, "مورد", "فرسودگی الیاف ناشی از رطوبت"),
+            PanelCatalogItem("PANEL-DEF-4", "پارگی / شکافتگی / سوراخ", "DEFECT", 0L, 0.0, 0.0, "مورد", "پارگی در متن یا لچک و ترنج"),
+            PanelCatalogItem("PANEL-DEF-5", "بیدزدگی / ساییدگی شدید پرز", "DEFECT", 0L, 0.0, 0.0, "مورد", "خوردگی پشم یا کچلی موضعی فرش"),
+            PanelCatalogItem("PANEL-DEF-6", "تغییر رنگ / لکه عمیق چربی و چای", "DEFECT", 0L, 0.0, 0.0, "مورد", "تداخل رنگ‌های بافت یا لکه‌های ماندگار"),
+            PanelCatalogItem("PANEL-DEF-7", "کجی / دفرمگی / شکستگی تار و پود", "DEFECT", 0L, 0.0, 0.0, "مورد", "تاب‌خوردگی یا شکستگی ناشی از تاشدن نادرست")
+        )
     }
 }

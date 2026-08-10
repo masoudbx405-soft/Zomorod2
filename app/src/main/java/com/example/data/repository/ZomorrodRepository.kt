@@ -649,4 +649,22 @@ class ZomorrodRepository(
             chatMessageDao.insertMessages(chatSeed)
         }
     }
+
+    private var cachedPanelCatalog: List<com.example.data.model.PanelCatalogItem> = emptyList()
+
+    /**
+     * فراخوانی زنده یا دریافت کش کاتالوگ اقلام و خدمات مصوب پنل مرکزی
+     */
+    suspend fun getPanelServiceCatalog(forceRefresh: Boolean = false): List<com.example.data.model.PanelCatalogItem> {
+        return withContext(Dispatchers.IO) {
+            if (!forceRefresh && cachedPanelCatalog.isNotEmpty()) {
+                return@withContext cachedPanelCatalog
+            }
+            val catalog = supabaseService.fetchServiceCatalog()
+            if (catalog.isNotEmpty()) {
+                cachedPanelCatalog = catalog
+            }
+            catalog
+        }
+    }
 }

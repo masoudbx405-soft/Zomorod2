@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.CarpetItemEntity
 import com.example.data.local.model.OrderWithItems
+import com.example.data.model.PanelCatalogState
 import com.example.ui.components.AddCarpetItemDialog
 import com.example.ui.components.BarcodeView
 import com.example.ui.components.QrCodeView
@@ -26,10 +27,13 @@ import com.example.utils.FarsiUtils
 
 import com.example.ui.theme.CleanPurpleAccent
 import com.example.ui.theme.CleanPurpleContainer
+import com.example.ui.theme.CleanTealAccent
 
 @Composable
 fun CarpetRegistrationScreen(
     orderWithItems: OrderWithItems?,
+    panelCatalogState: PanelCatalogState = PanelCatalogState(),
+    onRefreshPanelCatalog: () -> Unit = {},
     isPrinting: Boolean,
     onBack: () -> Unit = {},
     onAddCarpetItem: (
@@ -62,6 +66,8 @@ fun CarpetRegistrationScreen(
     if (showAddDialog) {
         AddCarpetItemDialog(
             orderId = order.id,
+            panelCatalogState = panelCatalogState,
+            onRefreshCatalog = onRefreshPanelCatalog,
             onDismiss = { showAddDialog = false },
             onConfirm = { type, len, wid, price, servs, defs, notes, tag ->
                 onAddCarpetItem(type, len, wid, price, servs, defs, notes, tag)
@@ -167,7 +173,55 @@ fun CarpetRegistrationScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Panel Tariff Sync Bar
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = CleanTealAccent.copy(alpha = 0.1f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CleanTealAccent.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(
+                        Icons.Default.CloudSync,
+                        contentDescription = null,
+                        tint = CleanTealAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (panelCatalogState.isFromLiveServer) "تعرفه‌ها و اقلام همگام با پنل مرکزی (${panelCatalogState.carpetTypes.size + panelCatalogState.services.size} آیتم)"
+                               else "اقلام و تعرفه‌های مصوب قالیشویی زمرد",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CleanTealAccent
+                    )
+                }
+
+                TextButton(
+                    onClick = onRefreshPanelCatalog,
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                ) {
+                    if (panelCatalogState.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = CleanTealAccent)
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = CleanTealAccent)
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("فراخوانی پنل", fontSize = 10.sp, color = CleanTealAccent, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Action Row
         Row(

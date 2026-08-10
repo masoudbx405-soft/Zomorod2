@@ -72,6 +72,7 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     val backupInfo by viewModel.backupInfo.collectAsState()
     val isBgServiceRunning by viewModel.isBackgroundServiceRunning.collectAsState()
     val bgLastSyncTime by viewModel.backgroundLastSyncTime.collectAsState()
+    val panelCatalogState by viewModel.panelCatalogState.collectAsState()
 
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showSyncQueueDialog by remember { mutableStateOf(false) }
@@ -429,6 +430,8 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                     )
                     99 -> CarpetRegistrationScreen(
                         orderWithItems = selectedOrder,
+                        panelCatalogState = panelCatalogState,
+                        onRefreshPanelCatalog = { viewModel.loadPanelCatalog(forceRefresh = true) },
                         isPrinting = isPrinting,
                         onBack = { viewModel.setActiveTab(1) },
                         onAddCarpetItem = { type, len, wid, price, servs, defs, notes, tag ->

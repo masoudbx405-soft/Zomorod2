@@ -19,6 +19,8 @@ object ZomorrodSupabaseConfig {
         const val DRIVER_SETTLEMENTS = "driver_settlements"
         const val CHAT_MESSAGES = "chat_messages"
         const val GPS_LOGS = "driver_gps_logs"
+        const val SERVICE_ITEMS = "service_items"
+        const val PRICING_CATALOG = "pricing_catalog"
     }
 
     // نام باکت‌های ذخیره‌سازی Supabase Storage

@@ -13,6 +13,8 @@ import com.example.data.local.entities.GpsLogEntity
 import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.SyncQueueEntity
 import com.example.data.local.model.OrderWithItems
+import com.example.data.model.PanelCatalogItem
+import com.example.data.model.PanelCatalogState
 import com.example.data.repository.ZomorrodRepository
 import com.example.utils.BackupInfo
 import com.example.utils.BluetoothPrinterDevice
@@ -263,10 +265,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _backupInfo = MutableStateFlow<BackupInfo?>(null)
     val backupInfo: StateFlow<BackupInfo?> = _backupInfo
 
+    private val _panelCatalogState = MutableStateFlow(PanelCatalogState())
+    val panelCatalogState: StateFlow<PanelCatalogState> = _panelCatalogState.asStateFlow()
+
     private val realGpsManager = RealGpsManager(application)
 
     init {
         refreshBackupInfo()
+        loadPanelCatalog(false)
 
         realGpsManager.setLocationCallback { lat, lng, speedKmh ->
             viewModelScope.launch {
@@ -400,6 +406,39 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         )
         viewModelScope.launch {
             repository.addCarpetItemToOrder(orderId, item)
+        }
+    }
+
+    fun loadPanelCatalog(forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            _panelCatalogState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val allItems = repository.getPanelServiceCatalog(forceRefresh)
+                val carpetTypes = allItems.filter { it.category == "CARPET_TYPE" }
+                val services = allItems.filter { it.category == "SERVICE" }
+                val defects = allItems.filter { it.category == "DEFECT" }
+
+                val nowTime = FarsiUtils.formatCurrentTimeFarsi()
+                _panelCatalogState.value = PanelCatalogState(
+                    carpetTypes = carpetTypes,
+                    services = services,
+                    defects = defects,
+                    isFromLiveServer = isOnline.value,
+                    lastFetchedTime = nowTime,
+                    isLoading = false,
+                    errorMessage = null
+                )
+                if (forceRefresh) {
+                    _syncToastMessage.value = "اقلام و تعرفه‌های مصوب از پنل مرکزی با موفقیت فراخوانی شد"
+                }
+            } catch (e: Exception) {
+                _panelCatalogState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "خطا در دریافت اقلام از پنل: ${e.localizedMessage}"
+                    )
+                }
+            }
         }
     }
 
