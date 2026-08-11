@@ -46,18 +46,9 @@ class MainActivity : ComponentActivity() {
         requestRequiredPermissions()
 
         setContent {
-            // Safely set status bar behavior inside composable context after window view is attached
-            androidx.compose.runtime.SideEffect {
-                try {
-                    WindowCompat.getInsetsController(window, window.decorView).apply {
-                        hide(WindowInsetsCompat.Type.statusBars())
-                        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            com.example.ui.theme.ZomorrodDriverTheme {
+                MainDriverScreen(viewModel = driverViewModel)
             }
-            MainDriverScreen(viewModel = driverViewModel)
         }
     }
 

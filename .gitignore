@@ -1,6 +1,15 @@
+# ---- اسرار — این‌ها هرگز نباید commit بشن ----
+.env
+*.jks
+*.keystore
+local.properties
+*.p12
+KEYSTORE_PASSWORD_SAVE_THIS.txt
+
+# ---- خروجی build ----
 *.iml
-.gradle
-.kotlin
+.gradle/
+build/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -13,6 +22,8 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
-.env
-debug.keystore
+*.apk
+*.aab
+
+# ---- خروجی Roborazzi screenshot tests ----
+app/src/test/screenshots/

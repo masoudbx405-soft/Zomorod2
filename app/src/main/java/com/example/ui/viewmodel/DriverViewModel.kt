@@ -13,8 +13,6 @@ import com.example.data.local.entities.GpsLogEntity
 import com.example.data.local.entities.OrderEntity
 import com.example.data.local.entities.SyncQueueEntity
 import com.example.data.local.model.OrderWithItems
-import com.example.data.model.PanelCatalogItem
-import com.example.data.model.PanelCatalogState
 import com.example.data.repository.ZomorrodRepository
 import com.example.utils.BackupInfo
 import com.example.utils.BluetoothPrinterDevice
@@ -47,7 +45,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _isLoggedIn = MutableStateFlow(prefs.getBoolean("is_logged_in", false))
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
-    private val _savedDriverPhone = MutableStateFlow(prefs.getString("driver_phone", "09123456789") ?: "09123456789")
+    private val _savedDriverPhone = MutableStateFlow(prefs.getString("driver_phone", "") ?: "")
     val savedDriverPhone: StateFlow<String> = _savedDriverPhone
 
     private val _otpSent = MutableStateFlow(false)
@@ -59,10 +57,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _authError = MutableStateFlow<String?>(null)
     val authError: StateFlow<String?> = _authError
 
-    private val _generatedOtp = MutableStateFlow("20117")
+    private val _generatedOtp = MutableStateFlow("")
     val generatedOtp: StateFlow<String> = _generatedOtp
 
-    private val _serverUrl = MutableStateFlow(prefs.getString("server_url", "https://panel.yaselectrical.ir") ?: "https://panel.yaselectrical.ir")
+    private val _serverUrl = MutableStateFlow(prefs.getString("server_url", com.example.data.remote.supabase.ZomorrodSupabaseConfig.DEFAULT_SUPABASE_URL) ?: com.example.data.remote.supabase.ZomorrodSupabaseConfig.DEFAULT_SUPABASE_URL)
     val serverUrl: StateFlow<String> = _serverUrl
 
     private val _isTestingConnection = MutableStateFlow(false)
@@ -96,11 +94,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _authLoading.value = true
             _authError.value = null
-            delay(500)
+            val (ok, message) = repository.supabaseService.requestOtp(cleanPhone)
             _authLoading.value = false
-            _otpSent.value = true
-            _generatedOtp.value = "20117"
-            _syncToastMessage.value = "کد تایید یکبارمصرف پیامک شد."
+            if (ok) {
+                _otpSent.value = true
+                _generatedOtp.value = message
+                _syncToastMessage.value = message
+            } else {
+                _authError.value = message
+            }
         }
     }
 
@@ -113,26 +115,29 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _authLoading.value = true
             _authError.value = null
-            delay(400)
-            _authLoading.value = false
             val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim())
-            prefs.edit().putBoolean("is_logged_in", true).putString("driver_phone", cleanPhone).apply()
-            _savedDriverPhone.value = cleanPhone
-            _isLoggedIn.value = true
-            _otpSent.value = false
-            _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز به سامانه قالیشویی زمرد"
+            val driverId = repository.supabaseService.verifyOtp(cleanPhone, cleanCode)
+            _authLoading.value = false
+            if (driverId != null) {
+                prefs.edit()
+                    .putBoolean("is_logged_in", true)
+                    .putString("driver_phone", cleanPhone)
+                    .putString("driver_id", driverId)
+                    .apply()
+                _savedDriverPhone.value = cleanPhone
+                _isLoggedIn.value = true
+                _otpSent.value = false
+                _syncToastMessage.value = "خوش آمدید! ورود موفقیت‌آمیز به سامانه قالیشویی زمرد"
+            } else {
+                _authError.value = "کد وارد شده نامعتبر یا منقضی شده است."
+            }
         }
     }
 
-    fun quickLogin(phone: String = "09123456789") {
-        val cleanPhone = FarsiUtils.toEnglishDigits(phone.trim())
-        prefs.edit().putBoolean("is_logged_in", true).putString("driver_phone", cleanPhone).apply()
-        _savedDriverPhone.value = cleanPhone
-        _isLoggedIn.value = true
-        _otpSent.value = false
-        _authError.value = null
-        _syncToastMessage.value = "ورود سریع سفیر با موفقیت انجام شد."
-    }
+    // توجه: تابع quickLogin که قبلاً اینجا بود (ورود سریع بدون تایید واقعی
+    // OTP) حذف شد — چون همون‌قدر که کد master سمت سرور خطرناک بود، این
+    // میان‌بر هم می‌تونست بدون تایید واقعی کسی رو لاگین کنه. اگه بعداً
+    // برای تست دوباره لازم شد، باید صریحاً پشت یه فلگ build نوع debug باشه.
 
     fun resetOtpState() {
         _otpSent.value = false
@@ -265,14 +270,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _backupInfo = MutableStateFlow<BackupInfo?>(null)
     val backupInfo: StateFlow<BackupInfo?> = _backupInfo
 
-    private val _panelCatalogState = MutableStateFlow(PanelCatalogState())
-    val panelCatalogState: StateFlow<PanelCatalogState> = _panelCatalogState.asStateFlow()
-
     private val realGpsManager = RealGpsManager(application)
 
     init {
         refreshBackupInfo()
-        loadPanelCatalog(false)
 
         realGpsManager.setLocationCallback { lat, lng, speedKmh ->
             viewModelScope.launch {
@@ -409,39 +410,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun loadPanelCatalog(forceRefresh: Boolean = false) {
-        viewModelScope.launch {
-            _panelCatalogState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val allItems = repository.getPanelServiceCatalog(forceRefresh)
-                val carpetTypes = allItems.filter { it.category == "CARPET_TYPE" }
-                val services = allItems.filter { it.category == "SERVICE" }
-                val defects = allItems.filter { it.category == "DEFECT" }
-
-                val nowTime = FarsiUtils.formatCurrentTimeFarsi()
-                _panelCatalogState.value = PanelCatalogState(
-                    carpetTypes = carpetTypes,
-                    services = services,
-                    defects = defects,
-                    isFromLiveServer = isOnline.value,
-                    lastFetchedTime = nowTime,
-                    isLoading = false,
-                    errorMessage = null
-                )
-                if (forceRefresh) {
-                    _syncToastMessage.value = "اقلام و تعرفه‌های مصوب از پنل مرکزی با موفقیت فراخوانی شد"
-                }
-            } catch (e: Exception) {
-                _panelCatalogState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "خطا در دریافت اقلام از پنل: ${e.localizedMessage}"
-                    )
-                }
-            }
-        }
-    }
-
     fun deleteCarpetItem(itemId: Long, orderId: String) {
         viewModelScope.launch {
             repository.removeCarpetItem(itemId, orderId)
@@ -451,8 +419,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun finalizeInvoiceRegistration(orderId: String) {
         viewModelScope.launch {
             repository.updateOrderStatus(orderId, "COLLECTED_IN_INSPECTION")
-            _syncToastMessage.value = "ثبت فاکتور سفارش $orderId انجام شد و به منوی تحویل انبار منتقل گردید"
-            _activeTab.value = 1
+            _syncToastMessage.value = "فاکتور سفارش $orderId ثبت شد و به مرحله تحویل انبار منتقل گردید"
+            _activeTab.value = 2
         }
     }
 
@@ -475,11 +443,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _isSyncing.value = true
             try {
                 repository.updateRackAssignment(orderId, rackCode)
+                repository.updateOrderStatus(orderId, "DELIVERED_TO_WORKSHOP")
                 val isSynced = repository.syncWithWebPanel(serverUrl.value)
                 _isSyncing.value = false
                 if (isSynced) {
-                    repository.updateOrderStatus(orderId, "DELIVERED_TO_WORKSHOP")
-                    _syncToastMessage.value = "تأیید تحویل به انباردار و قفسه $rackCode به سرور panel.yaselectrical.ir ارسال شد"
+                    _syncToastMessage.value = "تحویل به انباردار و قفسه $rackCode در سامانه با موفقیت ثبت شد"
                 } else {
                     _syncToastMessage.value = "تحویل قفسه $rackCode در دیتابیس ثبت و در صف همگام‌سازی قرار گرفت"
                 }
@@ -512,8 +480,20 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         paymentMethod: String
     ) {
         viewModelScope.launch {
-            repository.finalizeSettlement(orderId, paidAmount, discountAmount, paymentMethod)
-            _syncToastMessage.value = "تسویه حساب سفارش $orderId نهایی شد"
+            _isSyncing.value = true
+            try {
+                repository.finalizeSettlement(orderId, paidAmount, discountAmount, paymentMethod)
+                val isSynced = repository.syncWithWebPanel(serverUrl.value)
+                _isSyncing.value = false
+                if (isSynced) {
+                    _syncToastMessage.value = "تسویه حساب سفارش $orderId نهایی و در سرور ثبت شد"
+                } else {
+                    _syncToastMessage.value = "تسویه حساب سفارش $orderId در دیتابیس ثبت و در صف همگام‌سازی قرار گرفت"
+                }
+            } catch (e: Exception) {
+                _isSyncing.value = false
+                _syncToastMessage.value = "خطا در ثبت تسویه: ${e.localizedMessage ?: "مجدداً تلاش کنید"}"
+            }
         }
     }
 

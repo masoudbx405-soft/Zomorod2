@@ -634,7 +634,7 @@ private fun ScanResultDialogOverlay(
                                     Text("کد سفارش:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(order.id, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
-                                Divider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -643,7 +643,7 @@ private fun ScanResultDialogOverlay(
                                     Text("مشتری:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(order.customerName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
-                                Divider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                                 if (carpet != null) {
                                     Row(
@@ -653,7 +653,7 @@ private fun ScanResultDialogOverlay(
                                         Text("نوع و ابعاد فرش:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${carpet.carpetType} (${carpet.lengthMeter}×${carpet.widthMeter} متر)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
-                                    Divider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -752,7 +752,7 @@ private fun ScanResultDialogOverlay(
                                     )
                                 }
 
-                                Divider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEF9A9A))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEF9A9A))
 
                                 Text(
                                     text = "🔵 سفارش جاری شما در این مقصد:",

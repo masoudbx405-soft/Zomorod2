@@ -14,18 +14,24 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 
 private val DarkColorScheme = darkColorScheme(
-    primary = CleanBluePrimary,
-    onPrimary = CleanBlueOnPrimary,
-    primaryContainer = CleanBlueContainer,
-    onPrimaryContainer = CleanBlueOnContainer,
+    primary = CleanBluePrimaryLight,
+    onPrimary = CleanBlueOnContainer,
+    primaryContainer = CleanBluePrimary,
+    onPrimaryContainer = CleanBlueContainer,
     secondary = CleanTealAccent,
     onSecondary = CleanLightSurface,
+    tertiary = CleanPurpleAccent,
+    onTertiary = CleanLightSurface,
+    tertiaryContainer = CleanPurpleContainer,
+    onTertiaryContainer = CleanPurpleAccent,
     background = CleanDarkBackground,
     onBackground = CleanDarkOnSurface,
     surface = CleanDarkSurface,
     onSurface = CleanDarkOnSurface,
     surfaceVariant = CleanDarkSurfaceVariant,
-    onSurfaceVariant = CleanDarkOnSurface
+    onSurfaceVariant = CleanDarkOnSurface,
+    outline = CleanDarkOutline,
+    outlineVariant = CleanDarkOutlineVariant
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -35,12 +41,18 @@ private val LightColorScheme = lightColorScheme(
     onPrimaryContainer = CleanBlueOnContainer,
     secondary = CleanTealAccent,
     onSecondary = CleanLightSurface,
+    tertiary = CleanPurpleAccent,
+    onTertiary = CleanLightSurface,
+    tertiaryContainer = CleanPurpleContainer,
+    onTertiaryContainer = CleanPurpleAccent,
     background = CleanLightBackground,
     onBackground = CleanLightOnSurface,
     surface = CleanLightSurface,
     onSurface = CleanLightOnSurface,
     surfaceVariant = CleanLightSurfaceVariant,
-    onSurfaceVariant = CleanLightOnSurface
+    onSurfaceVariant = CleanLightOnSurfaceMuted,
+    outline = CleanLightOutline,
+    outlineVariant = CleanLightOutlineVariant
 )
 
 @Composable

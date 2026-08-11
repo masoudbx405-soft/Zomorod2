@@ -481,190 +481,27 @@ class ZomorrodRepository(
 
     suspend fun seedInitialDataIfEmpty() {
         withContext(Dispatchers.IO) {
-            val existingCount = orderDao.getOrderCount()
-            if (existingCount == 0) {
-                val initialOrders = listOf(
-                    OrderEntity(
-                        id = "ZM-1403-1042",
-                        orderSequence = 1,
-                        trackingCode = "ZM-1042-TRK",
-                        subscriptionCode = "SUB-8812",
-                        customerName = "آقای سید محمدرضا طباطبایی",
-                        customerPhone = "09123456789",
-                        address = "تهران، ولنجک، خیابان چهاردهم، پلاک ۲۸، واحد ۴",
-                        notes = "دارای ۳ تخته فرش ۶ متری و ۱ تخته قالیچه ابریشم - درب منزل آسانسور دارد",
-                        latitude = 35.8080,
-                        longitude = 51.4080,
-                        orderType = "PICKUP",
-                        status = "ASSIGNED",
-                        stage = "pickup_assigned",
-                        routeOrder = 1,
-                        isSynced = true
-                    ),
-                    OrderEntity(
-                        id = "ZM-1403-1038",
-                        orderSequence = 2,
-                        trackingCode = "ZM-1038-TRK",
-                        subscriptionCode = "SUB-5421",
-                        customerName = "خانم مهندس فاطمی",
-                        customerPhone = "09187654321",
-                        address = "تهران، شهرک غرب، فاز ۳، خیابان حسن سیف، کوچه دوم، پلاک ۱۵",
-                        notes = "فرش‌ها قبل از جمع‌آوری نیاز به بازبینی لکه‌های قهوه دارند. هماهنگی تلفنی قبل از حضور",
-                        latitude = 35.7550,
-                        longitude = 51.3620,
-                        orderType = "PICKUP",
-                        status = "ASSIGNED",
-                        stage = "pickup_assigned",
-                        routeOrder = 2,
-                        isSynced = true
-                    ),
-                    OrderEntity(
-                        id = "ZM-1403-1015",
-                        orderSequence = 3,
-                        trackingCode = "ZM-1015-TRK",
-                        subscriptionCode = "SUB-9910",
-                        customerName = "دکتر مسعود بختیاری",
-                        customerPhone = "09121112233",
-                        address = "تهران، پاسداران، بوستان پنجم، پلاک ۸۲، واحد ۱",
-                        notes = "تحویل فرش‌های اعلاشویی شده. تسویه حساب کارتخوان یا نقدی در محل",
-                        latitude = 35.7680,
-                        longitude = 51.4610,
-                        orderType = "DELIVERY",
-                        status = "READY_FOR_DELIVERY",
-                        stage = "ready_for_delivery",
-                        totalAmount = 1850000L,
-                        finalPayable = 1850000L,
-                        rackCode = "A-12",
-                        routeOrder = 3,
-                        isSynced = true
-                    ),
-                    OrderEntity(
-                        id = "ZM-1403-0994",
-                        orderSequence = 4,
-                        trackingCode = "ZM-0994-TRK",
-                        subscriptionCode = "SUB-3312",
-                        customerName = "حاج علی‌اصغر کاظمی",
-                        customerPhone = "09139998877",
-                        address = "تهران، سعادت‌آباد، بالاتر از میدان کاج، خیابان علی‌اکبری، پلاک ۴",
-                        notes = "فرش ۹ متری ماشینی شسته شده آماده تحویل. تحویل قبل از ساعت ۱۸",
-                        latitude = 35.7820,
-                        longitude = 51.3780,
-                        orderType = "DELIVERY",
-                        status = "READY_FOR_DELIVERY",
-                        stage = "ready_for_delivery",
-                        totalAmount = 920000L,
-                        finalPayable = 920000L,
-                        rackCode = "B-04",
-                        routeOrder = 4,
-                        isSynced = true
+            // یک ردیف راننده خام (بدون نام/خودرو واقعی) فقط برای این‌که کلید
+            // خارجی محلی (DRV-101) در دیتابیس آفلاین موجود باشد — این ردیف با
+            // اولین ورود واقعی (OTP) و همگام‌سازی با پنل بازنویسی می‌شود.
+            // هیچ سفارش، فرش، مشتری یا پیام چت نمونه‌ای دیگر ساخته نمی‌شود؛
+            // همه‌چیز باید واقعاً از پنل وب ارسال شده باشد.
+            if (driverDao?.getDriverDirect("DRV-101") == null) {
+                driverDao?.insertOrUpdateDriver(
+                    DriverEntity(
+                        id = "DRV-101",
+                        name = "",
+                        phone = "",
+                        vehicleType = "",
+                        vehiclePlate = "",
+                        status = "active",
+                        currentLat = 35.7219,
+                        currentLng = 51.3347,
+                        batteryLevel = 100,
+                        speed = 0.0f
                     )
                 )
-
-                orderDao.insertOrders(initialOrders)
-
-                val itemsForOrder3 = listOf(
-                    CarpetItemEntity(
-                        orderId = "ZM-1403-1015",
-                        carpetType = "ماشینی ۱۲ متری",
-                        lengthMeter = 4.0,
-                        widthMeter = 3.0,
-                        areaSqMeter = 12.0,
-                        unitPricePerMeter = 100000L,
-                        requestedServicesJson = "اعلاشویی، رفوگری شیرازه",
-                        defectsJson = "قدیمی - ساییدگی حاشیه",
-                        totalPrice = 1200000L,
-                        notes = "رفوگری با کیفیت انجام شده",
-                        barcodeTag = "ST-1015-01"
-                    ),
-                    CarpetItemEntity(
-                        orderId = "ZM-1403-1015",
-                        carpetType = "دستبافت نائین ۶ متری",
-                        lengthMeter = 3.0,
-                        widthMeter = 2.0,
-                        areaSqMeter = 6.0,
-                        unitPricePerMeter = 108333L,
-                        requestedServicesJson = "ابریشم‌شویی اختصاصی",
-                        defectsJson = "بدون عیب",
-                        totalPrice = 650000L,
-                        notes = "شستشوی دستبافت حساس",
-                        barcodeTag = "ST-1015-02"
-                    )
-                )
-
-                val itemsForOrder4 = listOf(
-                    CarpetItemEntity(
-                        orderId = "ZM-1403-0994",
-                        carpetType = "ماشینی ۹ متری",
-                        lengthMeter = 3.5,
-                        widthMeter = 2.57,
-                        areaSqMeter = 9.0,
-                        unitPricePerMeter = 102222L,
-                        requestedServicesJson = "شستشوی ویژه و ریشه‌زنی",
-                        defectsJson = "لکه‌دار اولیه",
-                        totalPrice = 920000L,
-                        notes = "ریشه‌ها بازسازی شد",
-                        barcodeTag = "ST-0994-01"
-                    )
-                )
-
-                orderDao.insertCarpetItems(itemsForOrder3)
-                orderDao.insertCarpetItems(itemsForOrder4)
             }
-
-            // Seed driver profile if empty
-            driverDao?.insertOrUpdateDriver(
-                DriverEntity(
-                    id = "DRV-101",
-                    name = "سفیر مسعود بختیاری",
-                    phone = "09123456789",
-                    vehicleType = "وانت نیسان مسقف",
-                    vehiclePlate = "ایران ۱۱ - ۲۵۸ ج ۹۴",
-                    status = "active",
-                    currentLat = 35.7796,
-                    currentLng = 51.4058,
-                    batteryLevel = 88,
-                    speed = 0.0f
-                )
-            )
-
-            // Seed chat if empty
-            val chatSeed = listOf(
-                ChatMessageEntity(
-                    orderId = "GENERAL",
-                    sender = "DISPATCHER",
-                    senderName = "اپراتور مرکزی (panel.yaselectrical.ir)",
-                    messageText = "سلام سفیر گرامی، ۴ ماموریت جدید امروز در پنل برای شما اختصاص یافت. سیستم اتوماتیک هماهنگ است.",
-                    timestamp = System.currentTimeMillis() - 3600000L,
-                    isSynced = true
-                ),
-                ChatMessageEntity(
-                    orderId = "GENERAL",
-                    sender = "DRIVER",
-                    senderName = "سفیر مسعود بختیاری",
-                    messageText = "درود، متشکرم. حرکت به سمت آدرس اول در ولنجک.",
-                    timestamp = System.currentTimeMillis() - 3000000L,
-                    isSynced = true
-                )
-            )
-            chatMessageDao.insertMessages(chatSeed)
-        }
-    }
-
-    private var cachedPanelCatalog: List<com.example.data.model.PanelCatalogItem> = emptyList()
-
-    /**
-     * فراخوانی زنده یا دریافت کش کاتالوگ اقلام و خدمات مصوب پنل مرکزی
-     */
-    suspend fun getPanelServiceCatalog(forceRefresh: Boolean = false): List<com.example.data.model.PanelCatalogItem> {
-        return withContext(Dispatchers.IO) {
-            if (!forceRefresh && cachedPanelCatalog.isNotEmpty()) {
-                return@withContext cachedPanelCatalog
-            }
-            val catalog = supabaseService.fetchServiceCatalog()
-            if (catalog.isNotEmpty()) {
-                cachedPanelCatalog = catalog
-            }
-            catalog
         }
     }
 }

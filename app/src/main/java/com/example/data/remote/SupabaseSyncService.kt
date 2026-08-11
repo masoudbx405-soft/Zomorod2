@@ -11,11 +11,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * سرویس همگام‌سازی و ارتباط با Supabase در سامانه قالیشویی زمرد (panel.yaselectrical.ir)
+ * سرویس همگام‌سازی و ارتباط با Supabase در سامانه قالیشویی زمرد
+ * (اتصال واقعی از طریق Edge Functionهای driver-api و otp)
  */
 class SupabaseSyncService(
     private var baseUrl: String = ZomorrodSupabaseConfig.DEFAULT_SUPABASE_URL,
-    private var apiKey: String = ZomorrodSupabaseConfig.DEFAULT_ANON_KEY
+    private var apiKey: String = ZomorrodSupabaseConfig.DRIVER_API_KEY
 ) {
     val supabaseManager = ZomorrodSupabaseManager(baseUrl, apiKey)
 
@@ -30,6 +31,14 @@ class SupabaseSyncService(
     suspend fun testConnection(targetUrl: String = baseUrl): Pair<Boolean, String> {
         supabaseManager.updateCredentials(targetUrl, apiKey)
         return supabaseManager.checkHealth()
+    }
+
+    suspend fun requestOtp(phone: String): Pair<Boolean, String> {
+        return supabaseManager.requestOtp(phone)
+    }
+
+    suspend fun verifyOtp(phone: String, code: String): String? {
+        return supabaseManager.verifyOtp(phone, code)
     }
 
     suspend fun syncTelemetry(driver: DriverEntity): Boolean {
@@ -63,9 +72,5 @@ class SupabaseSyncService(
 
     suspend fun fetchChatMessages(driverId: String = "DRV-101"): List<com.example.data.remote.supabase.SupabaseChatMessageDto> {
         return supabaseManager.fetchChatMessages(driverId)
-    }
-
-    suspend fun fetchServiceCatalog(): List<com.example.data.model.PanelCatalogItem> {
-        return supabaseManager.fetchPanelServiceCatalog()
     }
 }

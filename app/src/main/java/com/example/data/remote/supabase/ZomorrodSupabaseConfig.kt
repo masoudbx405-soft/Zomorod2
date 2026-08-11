@@ -1,39 +1,52 @@
 package com.example.data.remote.supabase
 
+import com.example.BuildConfig
+
 /**
- * پیکربندی و تنظیمات ارتباط با پروژه Supabase قالیشویی زمرد
- * سامانه متمرکز: https://panel.yaselectrical.ir
+ * پیکربندی و تنظیمات ارتباط با پروژه واقعی Supabase قالیشویی زمرد.
+ *
+ * توجه مهم: اپ اندروید مستقیم به جدول‌های دیتابیس (Postgrest) وصل نمی‌شود —
+ * چون جدول‌های orders/drivers در Supabase با Row Level Security فقط برای
+ * کاربر لاگین‌کرده (Auth) در پنل وب باز هستند. به‌جایش، همه‌ی درخواست‌های
+ * راننده باید از طریق Edge Functionهایی بره که برای همین منظور در پروژه‌ی
+ * وب (supabase/functions/driver-api و supabase/functions/otp) ساخته شده‌اند
+ * و با DRIVER_API_KEY احراز هویت می‌شوند.
+ *
+ * مقادیر واقعی دیگر اینجا هاردکد نیستند — از BuildConfig می‌آیند که خودش
+ * از فایل .env (گیت‌ایگنور‌شده، کنار همین ماژول app) پر می‌شود (پلاگین
+ * Secrets Gradle، پایین‌تر در app/build.gradle.kts تنظیم شده). اگر .env
+ * وجود نداشته باشد (مثلاً یه چک‌اوت تازه از گیت‌هاب)، مقدار placeholder
+ * از .env.example جایگزین می‌شود تا پروژه کامپایل شود، ولی درخواست‌های
+ * شبکه‌ای تا وقتی .env واقعی ساخته نشود کار نمی‌کنند.
  */
 object ZomorrodSupabaseConfig {
-    // آدرس سرور متمرکز قالیشویی زمرد
-    const val DEFAULT_SUPABASE_URL = "https://panel.yaselectrical.ir"
+    // آدرس واقعی پروژه‌ی Supabase (از Project Settings -> API -> Project URL)
+    val DEFAULT_SUPABASE_URL: String = BuildConfig.SUPABASE_URL
 
-    // کلید دسترسی عمومی (Anon Key) پروژه
-    const val DEFAULT_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvbW9ycm9kLXBhbmVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk4NTYwMDAsImV4cCI6MjAyNTQzMjAwMH0.anon_key_zomorrod_secure"
+    // همان رشته‌ای که با «supabase secrets set DRIVER_API_KEY=...» تنظیم
+    // کردید (وقتی setup_domain_and_supabase.py را روی پنل وب اجرا کردید،
+    // این مقدار در خروجی ترمینال چاپ شد). باید دقیقاً یکی باشد.
+    val DRIVER_API_KEY: String = BuildConfig.DRIVER_API_KEY
 
-    // نام جداول دیتابیس در Supabase
-    object Tables {
-        const val DRIVERS = "drivers"
-        const val ORDERS = "orders"
-        const val CARPET_ITEMS = "carpet_items"
-        const val DRIVER_SETTLEMENTS = "driver_settlements"
-        const val CHAT_MESSAGES = "chat_messages"
-        const val GPS_LOGS = "driver_gps_logs"
-        const val SERVICE_ITEMS = "service_items"
-        const val PRICING_CATALOG = "pricing_catalog"
+    // پایه‌ی آدرس Edge Functionها
+    val FUNCTIONS_BASE_URL: String = "$DEFAULT_SUPABASE_URL/functions/v1"
+
+    // مسیرهای واقعی Edge Function driver-api (بدون /driver-api چون در URL کامل اضافه می‌شود)
+    object DriverApiPaths {
+        val COLLECTION_ROUTE = "$FUNCTIONS_BASE_URL/driver-api/routes/collection"
+        val DELIVERY_ROUTE = "$FUNCTIONS_BASE_URL/driver-api/routes/delivery"
+        val HEALTH_CHECK = "$FUNCTIONS_BASE_URL/driver-api/health"
+        fun orderItems(orderId: String) = "$FUNCTIONS_BASE_URL/driver-api/orders/$orderId/items"
+        fun orderStatus(orderId: String) = "$FUNCTIONS_BASE_URL/driver-api/orders/$orderId/status"
+        fun returnToWarehouse(orderId: String) = "$FUNCTIONS_BASE_URL/driver-api/orders/$orderId/return-to-warehouse"
+        fun settle(orderId: String) = "$FUNCTIONS_BASE_URL/driver-api/orders/$orderId/settle"
+        val OFFICE_SETTLEMENT = "$FUNCTIONS_BASE_URL/driver-api/driver/office-settlement"
+        val LOCATION = "$FUNCTIONS_BASE_URL/driver-api/driver/location"
     }
 
-    // نام باکت‌های ذخیره‌سازی Supabase Storage
-    object Buckets {
-        const val SIGNATURES = "signatures"
-        const val RECEIPTS = "receipts"
-        const val DEFECT_PHOTOS = "carpet-defects"
-    }
-
-    // کانال‌های دریافت برخط Realtime
-    object Channels {
-        const val ORDERS_CHANNEL = "zomorrod-orders-realtime"
-        const val CHAT_CHANNEL = "zomorrod-chat-realtime"
-        const val DRIVER_TRACKING_CHANNEL = "zomorrod-driver-tracking"
+    // مسیرهای Edge Function otp (ورود راننده با کد پیامکی)
+    object OtpPaths {
+        val REQUEST = "$FUNCTIONS_BASE_URL/otp/request"
+        val VERIFY = "$FUNCTIONS_BASE_URL/otp/verify"
     }
 }

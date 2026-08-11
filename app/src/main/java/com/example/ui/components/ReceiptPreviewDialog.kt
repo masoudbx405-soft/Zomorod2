@@ -172,14 +172,14 @@ fun ReceiptPreviewDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Divider(modifier = Modifier.weight(1f), color = Color.Gray)
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.Gray)
                             Text(
                                 "  ✂ محل برش کاغذ پرینتر (نسخه راننده)  ",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.DarkGray
                             )
-                            Divider(modifier = Modifier.weight(1f), color = Color.Gray)
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.Gray)
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))

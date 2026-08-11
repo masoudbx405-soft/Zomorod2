@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -25,6 +26,7 @@ import com.example.ui.theme.CleanBluePrimary
 import com.example.ui.theme.CleanPurpleAccent
 import com.example.ui.theme.CleanPurpleContainer
 import com.example.ui.theme.CleanTealAccent
+import com.example.ui.theme.CleanTealContainer
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
 
@@ -41,12 +43,16 @@ fun DeliverySettlementScreen(
 ) {
     val context = LocalContext.current
 
-    // Active pending delivery orders (excluding settled or returned ones)
+    // Active pending delivery orders (excluding settled, returned, or orders in collection/workshop stages)
     val pendingDeliveryOrders = orders.filter {
-        (it.order.orderType == "DELIVERY" || it.order.status == "READY_FOR_DELIVERY") &&
+        (it.order.status == "READY_FOR_DELIVERY" ||
+                (it.order.orderType == "DELIVERY" && it.order.status == "ASSIGNED")) &&
                 it.order.status != "DELIVERED_SETTLED" &&
                 it.order.status != "OFFICE_SETTLED" &&
-                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE"
+                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE" &&
+                it.order.status != "DELIVERED_TO_WORKSHOP" &&
+                it.order.status != "COLLECTED_IN_INSPECTION" &&
+                it.order.status != "WASHING"
     }
 
     // Today's settled orders waiting for office handover
@@ -139,7 +145,7 @@ fun DeliverySettlementScreen(
                         "آیا از انجام تسویه نهایی روزانه و بستن کارکرد امروز با مدیریت اطمینان دارید؟",
                         fontSize = 13.sp
                     )
-                    Divider()
+                    HorizontalDivider()
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Text("تعداد فاکتورهای تسویه‌شده امروز:", fontSize = 12.sp)
                         Text("${FarsiUtils.toFarsiDigits(settledCount.toString())} فاکتور", fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -177,124 +183,260 @@ fun DeliverySettlementScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
-        // 1. Top Financial Summary Report Cards
+        // 1. Top Financial Summary Report Cards (Vertical Stack Layout with clean metric rows)
         Card(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Assessment,
-                            contentDescription = null,
-                            tint = CleanBluePrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "گزارش مالی و تسویه کارکرد",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(CleanBluePrimary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Assessment,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "گزارش مالی و تراز کارکرد سفیر",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "جمع‌بندی عملکرد مالی روز کاری جاری",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = CleanBlueContainer
                     ) {
                         Text(
-                            text = "روز کاری جاری",
+                            text = "${FarsiUtils.toFarsiDigits(settledCount.toString())} فاکتور تسویه",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = CleanBluePrimary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 3 Financial Summary Metrics
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // 1. Total Received Hero Box (کل دریافتی)
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = CleanBlueContainer.copy(alpha = 0.65f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanBluePrimary.copy(alpha = 0.25f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Total Received Card
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = CleanBlueContainer)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Payments, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("کل دریافتی", fontSize = 11.sp, color = CleanBluePrimary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(CleanBluePrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Payments,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = FarsiUtils.formatPrice(totalReceived),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = CleanBluePrimary
-                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "کل مبالغ دریافتی (نقد + پوز)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CleanBluePrimary
+                                )
+                                Text(
+                                    text = "مجموع وصولی‌های موفق از مشتریان",
+                                    fontSize = 10.sp,
+                                    color = CleanBluePrimary.copy(alpha = 0.8f)
+                                )
+                            }
                         }
+                        Text(
+                            text = FarsiUtils.formatPrice(totalReceived),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = CleanBluePrimary
+                        )
                     }
+                }
 
-                    // Cash Received Card
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                // Vertical list of sub-items (زیر هم)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Item 1: وجه نقد دریافتی (Cash)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.Start
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("وجه نقد", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(CleanPurpleContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = CleanPurpleAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "دریافتی نقدی (وجه نقد):",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = FarsiUtils.formatPrice(cashReceived),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                color = CleanPurpleAccent
                             )
                         }
                     }
 
-                    // Pending Collection Card
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    // Item 2: کارتخوان بانکی / POS
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.Start
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.HourglassEmpty, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("در انتظار وصول", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(CleanTealContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.CreditCard,
+                                        contentDescription = null,
+                                        tint = CleanTealAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "دریافتی کارتخوان (دستگاه POS):",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = FarsiUtils.formatPrice(posReceived),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = CleanTealAccent
+                            )
+                        }
+                    }
+
+                    // Item 3: در انتظار وصول (Pending collection)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.HourglassEmpty,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "مانده در انتظار وصول تحویل:",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                             Text(
                                 text = FarsiUtils.formatPrice(pendingCollection),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
@@ -433,7 +575,6 @@ fun DeliverySettlementScreen(
                             orderWithItems = item,
                             onCall = { NavigationUtils.makePhoneCall(context, item.order.customerPhone) },
                             onNavigateNeshan = { NavigationUtils.launchNeshan(context, item.order.latitude, item.order.longitude, item.order.address) },
-                            onNavigateBalad = { NavigationUtils.launchBalad(context, item.order.latitude, item.order.longitude, item.order.address) },
                             onSettleClick = { selectedOrderForSettlement = item },
                             onOpenScanVerification = { onOpenScanner(item.order.id) },
                             onReturnToCleanWarehouseClick = { orderForCleanWarehouseReturn = item }
@@ -475,7 +616,6 @@ fun DeliverySettlementScreen(
                             orderWithItems = item,
                             onCall = { NavigationUtils.makePhoneCall(context, item.order.customerPhone) },
                             onNavigateNeshan = { NavigationUtils.launchNeshan(context, item.order.latitude, item.order.longitude, item.order.address) },
-                            onNavigateBalad = { NavigationUtils.launchBalad(context, item.order.latitude, item.order.longitude, item.order.address) },
                             onSettleClick = { selectedOrderForSettlement = item },
                             onOpenScanVerification = { onOpenScanner(item.order.id) }
                         )
@@ -491,7 +631,6 @@ fun DeliveryOrderCard(
     orderWithItems: OrderWithItems,
     onCall: () -> Unit,
     onNavigateNeshan: () -> Unit,
-    onNavigateBalad: () -> Unit,
     onSettleClick: () -> Unit,
     onOpenScanVerification: () -> Unit = {},
     onReturnToCleanWarehouseClick: () -> Unit = {}

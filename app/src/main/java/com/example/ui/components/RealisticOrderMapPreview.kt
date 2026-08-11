@@ -6,7 +6,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,6 +46,8 @@ import com.example.ui.theme.CleanTealAccent
 import com.example.ui.theme.CleanTealContainer
 import com.example.utils.FarsiUtils
 import com.example.utils.NavigationUtils
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import kotlin.math.*
 
 /**
@@ -150,6 +151,26 @@ fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double):
 }
 
 /**
+ * ساخت آدرس تصویر واقعیِ نقشه‌ی استاتیک نشان (Neshan Static Map API).
+ * مستندات: https://developers.neshan.org/static-map/getting-started/v1/
+ * type یکی از: neshan, standard-day, standard-night, osm-bright
+ * zoom بین ۵ تا ۱۹، width/height حداکثر ۱۲۰۰ پیکسل.
+ */
+private fun neshanStaticMapUrl(
+    latitude: Double,
+    longitude: Double,
+    zoom: Int,
+    widthPx: Int,
+    heightPx: Int,
+    nightMode: Boolean
+): String {
+    val type = if (nightMode) "standard-night" else "standard-day"
+    return "https://api.neshan.org/v1/static?key=${NavigationUtils.NESHAN_API_KEY}" +
+            "&type=$type&zoom=$zoom&center=$latitude,$longitude" +
+            "&width=${widthPx.coerceAtMost(1200)}&height=${heightPx.coerceAtMost(1200)}"
+}
+
+/**
  * پیش‌نمایش واقعی و تعاملی نقشه برای کارت‌های جمع‌آوری و تحویل
  * همراه با رسم دقیق معابر محله، حالت ماهواره‌ای/شهری، زوم، نشانگر مقصد و دکمه مسیریابی
  */
@@ -212,14 +233,6 @@ fun RealisticOrderMapPreview(
             onLaunchNeshan = {
                 showFullDetailDialog = false
                 NavigationUtils.launchNeshan(context, latitude, longitude, address)
-            },
-            onLaunchBalad = {
-                showFullDetailDialog = false
-                NavigationUtils.launchBalad(context, latitude, longitude, address)
-            },
-            onLaunchGoogle = {
-                showFullDetailDialog = false
-                NavigationUtils.launchGoogleMaps(context, latitude, longitude, address)
             }
         )
     }
@@ -232,84 +245,21 @@ fun RealisticOrderMapPreview(
             .background(if (isSatelliteView) Color(0xFF1E293B) else Color(0xFFEFEFE9))
             .clickable { showFullDetailDialog = true }
     ) {
-        // 1. رسم بوم نقشه شهری یا ماهواره‌ای بر اساس خیابان‌های واقعی محله
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            if (isSatelliteView) {
-                drawSatelliteMap(w, h, zoomLevel, isDeliveryMode, neighborhood)
-            } else {
-                drawRealisticVectorCity(w, h, zoomLevel, isDeliveryMode, neighborhood)
-            }
-        }
-
-        // 2. برچسب‌های متنی واقعی خیابان‌ها روی نقشه
-        Box(modifier = Modifier.fillMaxSize()) {
-            // نام بزرگراه اصلی
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = if (isSatelliteView) Color(0xCC0F172A) else Color(0xE6FFFFFF),
-                border = BorderStroke(0.5.dp, if (isSatelliteView) Color(0xFF38BDF8) else Color(0xFFEAB308)),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 22.dp)
-            ) {
-                Text(
-                    text = neighborhood.highwayName,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSatelliteView) Color(0xFF38BDF8) else Color(0xFF854D0E),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-
-            // نام خیابان مقصد
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = if (isSatelliteView) Color(0xCC1E293B) else Color(0xEEFFFFFF),
-                border = BorderStroke(0.5.dp, Color(0xFF94A3B8)),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .offset(x = 10.dp, y = 14.dp)
-            ) {
-                Text(
-                    text = neighborhood.crossStreet,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSatelliteView) Color.White else Color(0xFF334155),
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                )
-            }
-
-            // نام بوستان / لندمارک محله
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = if (isSatelliteView) Color(0x99064E3B) else Color(0xDDF0FDF4),
-                border = BorderStroke(0.5.dp, Color(0xFF22C55E)),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-38).dp, y = 8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Park,
-                        contentDescription = null,
-                        tint = Color(0xFF16A34A),
-                        modifier = Modifier.size(9.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Text(
-                        text = neighborhood.poiName,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isSatelliteView) Color(0xFF86EFAC) else Color(0xFF15803D)
-                    )
-                }
-            }
-        }
+        // 1. تصویر واقعی نقشه‌ی نشان (Neshan Static Map API) با مرکزیت دقیق مقصد
+        val realZoom = when (zoomLevel) { 0 -> 14; 2 -> 18; else -> 16 }
+        AsyncImage(
+            model = neshanStaticMapUrl(
+                latitude = latitude,
+                longitude = longitude,
+                zoom = realZoom,
+                widthPx = 1000,
+                heightPx = (heightDp * 3).coerceIn(200, 1200),
+                nightMode = isSatelliteView
+            ),
+            contentDescription = "نقشه موقعیت $customerName",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // 3. نوار بالای نقشه: ترافیک زنده و وضعیت اتصال نقشه نشان
         Row(
@@ -337,7 +287,7 @@ fun RealisticOrderMapPreview(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isSatelliteView) "ماهواره نشان" else "نقشه نشان • ترافیک روان",
+                        text = if (isSatelliteView) "نقشه نشان • حالت شب" else "نقشه زنده نشان",
                         color = Color.White,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold
@@ -353,7 +303,7 @@ fun RealisticOrderMapPreview(
                 .padding(start = 8.dp, top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // دکمه تغییر حالت ماهواره‌ای / شهری
+            // دکمه تغییر حالت شب/روز نقشه (استایل واقعی نشان)
             Surface(
                 shape = RoundedCornerShape(7.dp),
                 color = if (isSatelliteView) CleanTealAccent else Color.White.copy(alpha = 0.92f),
@@ -364,8 +314,8 @@ fun RealisticOrderMapPreview(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        if (isSatelliteView) Icons.Default.Layers else Icons.Default.SatelliteAlt,
-                        contentDescription = "تغییر لایه نقشه",
+                        if (isSatelliteView) Icons.Default.DarkMode else Icons.Default.WbSunny,
+                        contentDescription = "تغییر حالت شب/روز نقشه",
                         tint = if (isSatelliteView) Color.White else Color(0xFF0F172A),
                         modifier = Modifier.size(15.dp)
                     )
@@ -411,35 +361,10 @@ fun RealisticOrderMapPreview(
             }
         }
 
-        // 5. نشانگر متحرک موقعیت راننده (وانت نیسان) در مسیر
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 18.dp, y = (-26).dp)
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = CleanBluePrimary,
-                shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, Color.White),
-                modifier = Modifier.size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.DirectionsCar,
-                        contentDescription = "موقعیت وانت راننده",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        // 6. نشانگر مقصد مشتری همراه با رادار متحرک و پلاک ساختمان
+        // 5. نشانگر مقصد مشتری همراه با رادار متحرک و پلاک ساختمان
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(x = (-15).dp, y = (-12).dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // تگ اطلاعات مشتری و پلاک
@@ -612,252 +537,6 @@ fun RealisticOrderMapPreview(
 }
 
 /**
- * رسم تخصصی وکتور نقشه شهری استاندارد نشان (معابر با خط‌کشی، خطوط عابر پیاده، بلوک‌های ساختمانی و مسیر هوشمند)
- */
-private fun DrawScope.drawRealisticVectorCity(
-    w: Float,
-    h: Float,
-    zoomLevel: Int,
-    isDeliveryMode: Boolean,
-    neighborhood: NeighborhoodData
-) {
-    val blockColor = Color(0xFFE5E3DD)
-    val blockColor2 = Color(0xFFDDD9D1)
-    val buildingRoofColor = Color(0xFFCCC7BC)
-    val parkColor = Color(0xFFC4E8C2)
-    val treeColor = Color(0xFF81C784)
-    val waterColor = Color(0xFFA5E6F5)
-
-    val primaryRoadBorder = Color(0xFFEAB308)
-    val primaryRoadColor = Color(0xFFFACC15)
-    val secondaryRoadBorder = Color(0xFFCBD5E1)
-    val secondaryRoadColor = Color(0xFFFFFFFF)
-    val routeLineColor = if (isDeliveryMode) Color(0xFF0284C7) else Color(0xFF10B981)
-
-    val zoomScale = when (zoomLevel) {
-        0 -> 0.75f
-        2 -> 1.35f
-        else -> 1.0f
-    }
-
-    // 1. فضای سبز و پارک شهری محله
-    drawRoundRect(
-        color = parkColor,
-        topLeft = Offset(w * 0.70f, h * 0.05f),
-        size = Size(w * 0.26f, h * 0.40f),
-        cornerRadius = CornerRadius(12f, 12f)
-    )
-    // رسم درختان پارک
-    drawCircle(treeColor, radius = 7f, center = Offset(w * 0.78f, h * 0.15f))
-    drawCircle(treeColor, radius = 9f, center = Offset(w * 0.86f, h * 0.22f))
-    drawCircle(treeColor, radius = 6f, center = Offset(w * 0.75f, h * 0.32f))
-
-    // 2. بلوک‌های ساختمانی و مسکونی محله
-    drawRoundRect(
-        color = blockColor,
-        topLeft = Offset(w * 0.04f, h * 0.06f),
-        size = Size(w * 0.38f, h * 0.32f),
-        cornerRadius = CornerRadius(8f, 8f)
-    )
-    // سایه بام ساختمان
-    drawRoundRect(
-        color = buildingRoofColor,
-        topLeft = Offset(w * 0.06f, h * 0.08f),
-        size = Size(w * 0.15f, h * 0.12f),
-        cornerRadius = CornerRadius(4f, 4f)
-    )
-    drawRoundRect(
-        color = buildingRoofColor,
-        topLeft = Offset(w * 0.24f, h * 0.08f),
-        size = Size(w * 0.15f, h * 0.12f),
-        cornerRadius = CornerRadius(4f, 4f)
-    )
-
-    // بلوک مسکونی سمت راست پایین
-    drawRoundRect(
-        color = blockColor2,
-        topLeft = Offset(w * 0.65f, h * 0.52f),
-        size = Size(w * 0.31f, h * 0.36f),
-        cornerRadius = CornerRadius(8f, 8f)
-    )
-    drawRoundRect(
-        color = buildingRoofColor,
-        topLeft = Offset(w * 0.68f, h * 0.56f),
-        size = Size(w * 0.12f, h * 0.28f),
-        cornerRadius = CornerRadius(4f, 4f)
-    )
-    drawRoundRect(
-        color = buildingRoofColor,
-        topLeft = Offset(w * 0.82f, h * 0.56f),
-        size = Size(w * 0.12f, h * 0.28f),
-        cornerRadius = CornerRadius(4f, 4f)
-    )
-
-    // بلوک میانی پایین
-    drawRoundRect(
-        color = blockColor,
-        topLeft = Offset(w * 0.28f, h * 0.54f),
-        size = Size(w * 0.32f, h * 0.34f),
-        cornerRadius = CornerRadius(8f, 8f)
-    )
-
-    // 3. شبکه خیابان‌های فرعی و کوچه‌ها (کف سفید + حاشیه طوسی)
-    val streetGrid = listOf(
-        Pair(Offset(0f, h * 0.44f), Offset(w, h * 0.44f)),
-        Pair(Offset(0f, h * 0.88f), Offset(w, h * 0.88f)),
-        Pair(Offset(w * 0.45f, 0f), Offset(w * 0.45f, h)),
-        Pair(Offset(w * 0.64f, 0f), Offset(w * 0.64f, h)),
-        Pair(Offset(w * 0.22f, 0f), Offset(w * 0.22f, h * 0.5f))
-    )
-
-    streetGrid.forEach { (st, en) ->
-        drawLine(secondaryRoadBorder, st, en, strokeWidth = 16f * zoomScale)
-    }
-    streetGrid.forEach { (st, en) ->
-        drawLine(secondaryRoadColor, st, en, strokeWidth = 12f * zoomScale)
-    }
-
-    // خط‌کشی خطوط عابر پیاده (Zebra Crosswalk) در تقاطع
-    val crosswalkCenter = Offset(w * 0.45f, h * 0.44f)
-    for (i in -2..2) {
-        drawLine(
-            color = Color(0xFF64748B),
-            start = Offset(crosswalkCenter.x + (i * 5f), crosswalkCenter.y - 10f),
-            end = Offset(crosswalkCenter.x + (i * 5f), crosswalkCenter.y + 10f),
-            strokeWidth = 2f
-        )
-    }
-
-    // 4. بزرگراه اصلی / بلوار شریانی زرد
-    val mainAvenueStart = Offset(0f, h * 0.22f)
-    val mainAvenueEnd = Offset(w, h * 0.22f)
-    drawLine(primaryRoadBorder, mainAvenueStart, mainAvenueEnd, strokeWidth = 22f * zoomScale)
-    drawLine(primaryRoadColor, mainAvenueStart, mainAvenueEnd, strokeWidth = 18f * zoomScale)
-
-    // خط‌چین سفید وسط بزرگراه
-    drawLine(
-        color = Color.White,
-        start = mainAvenueStart,
-        end = mainAvenueEnd,
-        strokeWidth = 2.5f,
-        pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 10f), 0f)
-    )
-
-    // بلوار متقاطع عمودی
-    val verticalBoulevardStart = Offset(w * 0.25f, 0f)
-    val verticalBoulevardEnd = Offset(w * 0.25f, h)
-    drawLine(primaryRoadBorder, verticalBoulevardStart, verticalBoulevardEnd, strokeWidth = 20f * zoomScale)
-    drawLine(primaryRoadColor, verticalBoulevardStart, verticalBoulevardEnd, strokeWidth = 16f * zoomScale)
-    drawLine(
-        color = Color.White,
-        start = verticalBoulevardStart,
-        end = verticalBoulevardEnd,
-        strokeWidth = 2f,
-        pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
-    )
-
-    // 5. خط مسیر بهینه راننده تا کوچه مقصد با افکت حرکت
-    val routePath = Path().apply {
-        moveTo(w * 0.10f, h * 0.88f) // نقطه راننده
-        lineTo(w * 0.25f, h * 0.88f)
-        lineTo(w * 0.25f, h * 0.44f)
-        lineTo(w * 0.52f, h * 0.44f) // نقطه مقصد
-    }
-
-    // هاله درخشان مسیر
-    drawPath(
-        path = routePath,
-        color = routeLineColor.copy(alpha = 0.35f),
-        style = Stroke(width = 14f)
-    )
-    // خط اصلی مسیر با فلش جهت‌دار
-    drawPath(
-        path = routePath,
-        color = routeLineColor,
-        style = Stroke(
-            width = 7f,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(24f, 6f), 0f)
-        )
-    )
-
-    // فلش‌های جهت حرکت در معابر
-    drawCircle(Color.White, radius = 3.5f, center = Offset(w * 0.25f, h * 0.66f))
-    drawCircle(Color.White, radius = 3.5f, center = Offset(w * 0.38f, h * 0.44f))
-}
-
-/**
- * رسم تخصصی وکتور تصاویر هوایی و ماهواره‌ای (Satellite Mode)
- */
-private fun DrawScope.drawSatelliteMap(
-    w: Float,
-    h: Float,
-    zoomLevel: Int,
-    isDeliveryMode: Boolean,
-    neighborhood: NeighborhoodData
-) {
-    // پس‌زمینه تیره اراضی ماهواره‌ای
-    drawRect(Color(0xFF1E293B))
-
-    // بافت‌های شهری و تراکم ساختمانی
-    drawRoundRect(
-        color = Color(0xFF0F172A),
-        topLeft = Offset(w * 0.04f, h * 0.06f),
-        size = Size(w * 0.38f, h * 0.34f),
-        cornerRadius = CornerRadius(6f, 6f)
-    )
-    drawRoundRect(
-        color = Color(0xFF334155),
-        topLeft = Offset(w * 0.28f, h * 0.52f),
-        size = Size(w * 0.32f, h * 0.36f),
-        cornerRadius = CornerRadius(6f, 6f)
-    )
-
-    // پوشش گیاهی و باغات ماهواره‌ای
-    drawRoundRect(
-        color = Color(0xFF064E3B),
-        topLeft = Offset(w * 0.68f, h * 0.06f),
-        size = Size(w * 0.28f, h * 0.38f),
-        cornerRadius = CornerRadius(10f, 10f)
-    )
-
-    // شبکه‌های معابر ماهواره‌ای (رنگ آسفالت تیره با هایلایت نئونی)
-    val roads = listOf(
-        Pair(Offset(0f, h * 0.22f), Offset(w, h * 0.22f)),
-        Pair(Offset(w * 0.25f, 0f), Offset(w * 0.25f, h)),
-        Pair(Offset(0f, h * 0.44f), Offset(w, h * 0.44f)),
-        Pair(Offset(0f, h * 0.88f), Offset(w, h * 0.88f)),
-        Pair(Offset(w * 0.64f, 0f), Offset(w * 0.64f, h))
-    )
-
-    roads.forEach { (s, e) ->
-        drawLine(Color(0xFF475569), s, e, strokeWidth = 14f)
-    }
-
-    // مسیر نئونی راننده در حالت ماهواره‌ای
-    val routeLineColor = if (isDeliveryMode) Color(0xFF38BDF8) else Color(0xFF34D399)
-    val routePath = Path().apply {
-        moveTo(w * 0.10f, h * 0.88f)
-        lineTo(w * 0.25f, h * 0.88f)
-        lineTo(w * 0.25f, h * 0.44f)
-        lineTo(w * 0.52f, h * 0.44f)
-    }
-
-    drawPath(
-        path = routePath,
-        color = routeLineColor.copy(alpha = 0.4f),
-        style = Stroke(width = 16f)
-    )
-    drawPath(
-        path = routePath,
-        color = routeLineColor,
-        style = Stroke(
-            width = 8f,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 6f), 0f)
-        )
-    )
-}
-
-/**
  * دیالوگ تعاملی تمام‌صفحه جزئیات نقشه، راهنمای گام‌به‌گام و مسیریاب‌های سه‌گانه
  */
 @Composable
@@ -872,9 +551,7 @@ fun OrderMapDetailDialog(
     neighborhood: NeighborhoodData,
     isDeliveryMode: Boolean,
     onDismiss: () -> Unit,
-    onLaunchNeshan: () -> Unit,
-    onLaunchBalad: () -> Unit,
-    onLaunchGoogle: () -> Unit
+    onLaunchNeshan: () -> Unit
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -948,15 +625,19 @@ fun OrderMapDetailDialog(
                         .clip(RoundedCornerShape(16.dp))
                         .background(if (isSatelliteInDialog) Color(0xFF1E293B) else Color(0xFFEFEFE9))
                 ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val w = size.width
-                        val h = size.height
-                        if (isSatelliteInDialog) {
-                            drawSatelliteMap(w, h, 1, isDeliveryMode, neighborhood)
-                        } else {
-                            drawRealisticVectorCity(w, h, 1, isDeliveryMode, neighborhood)
-                        }
-                    }
+                    AsyncImage(
+                        model = neshanStaticMapUrl(
+                            latitude = latitude,
+                            longitude = longitude,
+                            zoom = 16,
+                            widthPx = 1000,
+                            heightPx = 600,
+                            nightMode = isSatelliteInDialog
+                        ),
+                        contentDescription = "نقشه موقعیت $customerName",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     // کنترل تغییر لایه در دیالوگ
                     Surface(
@@ -971,8 +652,8 @@ fun OrderMapDetailDialog(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                if (isSatelliteInDialog) Icons.Default.Layers else Icons.Default.SatelliteAlt,
-                                contentDescription = null,
+                                if (isSatelliteInDialog) Icons.Default.DarkMode else Icons.Default.WbSunny,
+                                contentDescription = "تغییر حالت شب/روز نقشه",
                                 tint = Color(0xFF0F172A),
                                 modifier = Modifier.size(16.dp)
                             )
@@ -1052,85 +733,27 @@ fun OrderMapDetailDialog(
                     }
                 }
 
-                // راهنمای مسیر گام‌به‌گام
-                Text(
-                    text = "راهنمای ورود به کوچه و معبر:",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = CleanTealContainer.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, CleanTealAccent.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "۱. حرکت در ${neighborhood.highwayName} به سمت خروجی ${neighborhood.mainAvenue}",
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = "۲. گردش به راست وارد ${neighborhood.crossStreet} (${neighborhood.buildingNumber})",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CleanTealAccent
-                        )
-                        Text(
-                            text = "۳. مقصد نهایی در سمت راست کوچه قرار دارد.",
-                            fontSize = 11.sp
-                        )
-                    }
-                }
+                // نکته: مسیر گام‌به‌گام واقعی (پیچ‌به‌پیچ) توسط خود اپ نشان
+                // ارائه می‌شود؛ همینجا فقط نقشه و دکمه‌های مسیریابی نمایش داده می‌شود.
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // دکمه‌های اجرای مستقیم در اپلیکیشن‌های مسیریاب ایرانی و بین‌المللی
+                // دکمه اجرای مستقیم مسیریابی — فقط از طریق نشان
                 Text(
-                    text = "انتخاب برنامه مسیریاب جهت شروع هدایت:",
+                    text = "شروع مسیریابی با نشان:",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Button(
+                    onClick = onLaunchNeshan,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
                 ) {
-                    // دکمه نشان
-                    Button(
-                        onClick = onLaunchNeshan,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                        modifier = Modifier.weight(1f).height(44.dp)
-                    ) {
-                        Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("مسیریاب نشان", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // دکمه بلد
-                    Button(
-                        onClick = onLaunchBalad,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        modifier = Modifier.weight(1f).height(44.dp)
-                    ) {
-                        Icon(Icons.Default.TurnRight, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("مسیریاب بلد", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // دکمه گوگل مپس
-                    OutlinedButton(
-                        onClick = onLaunchGoogle,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f).height(44.dp)
-                    ) {
-                        Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("گوگل مپس", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مسیریاب نشان", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -29,28 +29,6 @@ object NavigationUtils {
         }
     }
 
-    fun launchBalad(context: Context, lat: Double, lng: Double, address: String) {
-        try {
-            val uri = Uri.parse("balad://location?latitude=$lat&longitude=$lng")
-            val intent = Intent(Intent.ACTION_VIEW, uri)
-            intent.setPackage("ir.balad.app")
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            launchGenericGeo(context, lat, lng, address)
-        }
-    }
-
-    fun launchGoogleMaps(context: Context, lat: Double, lng: Double, address: String) {
-        try {
-            val uri = Uri.parse("google.navigation:q=$lat,$lng")
-            val intent = Intent(Intent.ACTION_VIEW, uri)
-            intent.setPackage("com.google.android.apps.maps")
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            launchGenericGeo(context, lat, lng, address)
-        }
-    }
-
     private fun launchGenericGeo(context: Context, lat: Double, lng: Double, label: String) {
         try {
             val geoUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})")

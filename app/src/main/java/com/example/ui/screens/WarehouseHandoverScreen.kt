@@ -37,11 +37,17 @@ fun WarehouseHandoverScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, PENDING, COMPLETED
 
-    // Filter orders relevant for warehouse handover (only pending handover to panel)
+    // Filter orders relevant for warehouse handover (only pending handover to workshop/warehouse)
     val warehouseOrders = orders.filter { item ->
         val status = item.order.status
-        // Orders that are collected in inspection or assigned with carpet items, and NOT yet delivered to workshop
-        (status == "COLLECTED_IN_INSPECTION" || (status == "ASSIGNED" && item.items.isNotEmpty())) && status != "DELIVERED_TO_WORKSHOP"
+        // Orders that are collected in inspection (or collection orders with carpet items) and NOT yet handed over to workshop
+        (status == "COLLECTED_IN_INSPECTION" || (status == "ASSIGNED" && item.items.isNotEmpty() && item.order.orderType != "DELIVERY")) &&
+                status != "DELIVERED_TO_WORKSHOP" &&
+                status != "WASHING" &&
+                status != "READY_FOR_DELIVERY" &&
+                status != "DELIVERED_SETTLED" &&
+                status != "OFFICE_SETTLED" &&
+                status != "RETURNED_TO_CLEAN_WAREHOUSE"
     }.filter { item ->
         val matchesSearch = searchQuery.isBlank() ||
                 item.order.id.contains(searchQuery, true) ||
@@ -65,6 +71,53 @@ fun WarehouseHandoverScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
+        // 1. Warehouse Handover Stats Banner
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Warehouse,
+                        contentDescription = null,
+                        tint = CleanBluePrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${FarsiUtils.toFarsiDigits(warehouseOrders.size.toString())} سفارش آماده تحویل انبار",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (pendingRackCount > 0) Color(0xFFFEF3C7) else Color(0xFFDCFCE7)
+                ) {
+                    Text(
+                        text = if (pendingRackCount > 0) "${FarsiUtils.toFarsiDigits(pendingRackCount.toString())} نیاز به تعیین قفسه" else "همه قفسه‌بندی شد",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (pendingRackCount > 0) Color(0xFFD97706) else Color(0xFF16A34A),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
         // Search Field
         OutlinedTextField(
             value = searchQuery,

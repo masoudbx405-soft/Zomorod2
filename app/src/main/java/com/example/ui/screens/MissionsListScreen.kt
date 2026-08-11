@@ -375,12 +375,6 @@ fun MissionsListScreen(
                         onNavigateNeshan = {
                             NavigationUtils.launchNeshan(context, item.order.latitude, item.order.longitude, item.order.address)
                         },
-                        onNavigateBalad = {
-                            NavigationUtils.launchBalad(context, item.order.latitude, item.order.longitude, item.order.address)
-                        },
-                        onNavigateGoogle = {
-                            NavigationUtils.launchGoogleMaps(context, item.order.latitude, item.order.longitude, item.order.address)
-                        },
                         onOpenInspectionForm = { onOpenInspectionForm(item.order.id) },
                         onOpenRackAssignment = { onOpenRackAssignment(item.order.id) },
                         onOpenSettlement = { onOpenSettlement(item) },
@@ -398,8 +392,6 @@ fun OrderMissionCard(
     onSelect: () -> Unit,
     onCall: () -> Unit,
     onNavigateNeshan: () -> Unit,
-    onNavigateBalad: () -> Unit,
-    onNavigateGoogle: () -> Unit,
     onOpenInspectionForm: () -> Unit,
     onOpenRackAssignment: () -> Unit,
     onOpenSettlement: () -> Unit,

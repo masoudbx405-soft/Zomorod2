@@ -15,10 +15,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.ChatMessageEntity
+import com.example.ui.theme.*
 import com.example.utils.FarsiUtils
 import kotlinx.coroutines.launch
 
@@ -51,8 +53,79 @@ fun DispatchChatScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
+        // Dispatcher Live Status Banner
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CleanBluePrimary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.SupportAgent,
+                            contentDescription = null,
+                            tint = CleanBluePrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "واحد دیسپچ و پشتیبانی ناوگان",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF10B981))
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "پاسخگویی آنی • قالیشویی زمرد",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = CleanBlueContainer
+                ) {
+                    Text(
+                        text = "مرکز کنترل",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CleanBluePrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
         // Quick Macros Bar
-        Text("ارسال پیام سریع (بدون تایپ هنگام رانندگی):", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("پیام‌های سریع هنگام رانندگی:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(4.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -66,7 +139,8 @@ fun DispatchChatScreen(
                             if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
                         }
                     },
-                    label = { Text(macro, fontSize = 12.sp) }
+                    shape = RoundedCornerShape(12.dp),
+                    label = { Text(macro, fontSize = 11.sp, fontWeight = FontWeight.Medium) }
                 )
             }
         }
@@ -77,25 +151,45 @@ fun DispatchChatScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
                 val isDriver = msg.sender == "DRIVER"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isDriver) Arrangement.End else Arrangement.Start
+                    horizontalArrangement = if (isDriver) Arrangement.End else Arrangement.Start,
+                    verticalAlignment = Alignment.Bottom
                 ) {
+                    if (!isDriver) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(CleanPurpleContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.SupportAgent,
+                                contentDescription = null,
+                                tint = CleanPurpleAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+
                     Card(
                         shape = RoundedCornerShape(
                             topStart = 16.dp,
                             topEnd = 16.dp,
-                            bottomStart = if (isDriver) 16.dp else 2.dp,
-                            bottomEnd = if (isDriver) 2.dp else 16.dp
+                            bottomStart = if (isDriver) 16.dp else 4.dp,
+                            bottomEnd = if (isDriver) 4.dp else 16.dp
                         ),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDriver) MaterialTheme.colorScheme.primary
+                            containerColor = if (isDriver) CleanBluePrimary
                             else MaterialTheme.colorScheme.surfaceVariant
                         ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                         modifier = Modifier.widthIn(max = 280.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -103,14 +197,15 @@ fun DispatchChatScreen(
                                 text = msg.senderName,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDriver) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                color = if (isDriver) Color.White.copy(alpha = 0.85f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = msg.messageText,
-                                fontSize = 14.sp,
-                                color = if (isDriver) MaterialTheme.colorScheme.onPrimary
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
+                                color = if (isDriver) Color.White
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
@@ -118,7 +213,7 @@ fun DispatchChatScreen(
                                 text = FarsiUtils.formatShortTime(msg.timestamp),
                                 fontSize = 10.sp,
                                 modifier = Modifier.align(Alignment.End),
-                                color = if (isDriver) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                color = if (isDriver) Color.White.copy(alpha = 0.7f)
                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
@@ -137,7 +232,7 @@ fun DispatchChatScreen(
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                placeholder = { Text("پیام خود را بنویسید...") },
+                placeholder = { Text("پیام خود را بنویسید...", fontSize = 12.sp) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(20.dp),
                 maxLines = 3
@@ -151,9 +246,10 @@ fun DispatchChatScreen(
                     }
                 },
                 shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = CleanBluePrimary,
+                modifier = Modifier.size(50.dp)
             ) {
-                Icon(Icons.Default.Send, contentDescription = "ارسال", tint = MaterialTheme.colorScheme.onPrimary)
+                Icon(Icons.Default.Send, contentDescription = "ارسال", tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
     }

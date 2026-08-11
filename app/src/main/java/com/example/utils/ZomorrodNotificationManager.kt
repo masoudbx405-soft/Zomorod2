@@ -1,15 +1,17 @@
 package com.example.utils
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.media.ToneGenerator
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
@@ -17,6 +19,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.R
 
@@ -41,6 +44,17 @@ object ZomorrodNotificationManager {
 
     private val MISSION_VIBRATION_PATTERN = longArrayOf(0, 500, 200, 500, 200, 600, 200, 800)
     private val CHAT_VIBRATION_PATTERN = longArrayOf(0, 300, 150, 300, 150, 400)
+
+    fun hasNotificationPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
 
     fun createNotificationChannel(context: Context) {
         try {
@@ -104,23 +118,54 @@ object ZomorrodNotificationManager {
         }
     }
 
+    private var activeRingtone: android.media.Ringtone? = null
+    private val soundHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingStopRunnable: Runnable? = null
+
     /**
-     * پخش هشدار صوتی صریح (آلارم/رینگتون)
+     * پخش هشدار صوتی صریح (رینگتون کوتاه). قبلاً از نوع TYPE_ALARM استفاده
+     * می‌شد که طبق طراحی اندروید تا وقتی صریحاً stop() نشود ممکن است ادامه
+     * پیدا کند یا حلقه‌ای پخش شود (Ringtone قبلی هم هرگز نگه‌داشته و stop
+     * نمی‌شد) — همین باعث می‌شد صدای هشدار قطع نشود. حالا:
+     *  ۱. از TYPE_NOTIFICATION استفاده می‌کنیم (یک‌بار پخش و توقف طبیعی)
+     *  ۲. رینگتون قبلی (اگر هنوز پخش است) قبل از پخش جدید صریحاً stop می‌شود
+     *  ۳. یک تایمر ایمنی ۴ ثانیه‌ای هم گذاشته شده تا در بدترین حالت
+     *     (رینگتون سفارشی طولانی/حلقه‌ای روی بعضی گوشی‌ها) صدا حتماً قطع شود
      */
     fun playAlarmSound(context: Context, isUrgent: Boolean = true) {
         try {
-            val alertUri: Uri = RingtoneManager.getDefaultUri(
-                if (isUrgent) RingtoneManager.TYPE_ALARM else RingtoneManager.TYPE_NOTIFICATION
-            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            stopAlarmSound()
+
+            val alertUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
             val ringtone = RingtoneManager.getRingtone(context.applicationContext, alertUri)
             ringtone?.play()
+            activeRingtone = ringtone
+
+            val stopRunnable = Runnable { stopAlarmSound() }
+            pendingStopRunnable = stopRunnable
+            soundHandler.postDelayed(stopRunnable, 4000L)
         } catch (e: Exception) {
             try {
                 // Fallback to ToneGenerator if Ringtone fails
                 val toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
                 toneGen.startTone(ToneGenerator.TONE_CDMA_HIGH_L, if (isUrgent) 600 else 300)
             } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * توقف صریح صدای هشدار در حال پخش (در صورت وجود) و لغو تایمر ایمنی.
+     */
+    fun stopAlarmSound() {
+        try {
+            pendingStopRunnable?.let { soundHandler.removeCallbacks(it) }
+            pendingStopRunnable = null
+            activeRingtone?.let { if (it.isPlaying) it.stop() }
+            activeRingtone = null
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -193,8 +238,10 @@ object ZomorrodNotificationManager {
                 .setAutoCancel(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-            with(NotificationManagerCompat.from(context)) {
-                notify(notificationIdCounter++, builder.build())
+            if (hasNotificationPermission(context)) {
+                with(NotificationManagerCompat.from(context)) {
+                    notify(notificationIdCounter++, builder.build())
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -239,8 +286,10 @@ object ZomorrodNotificationManager {
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
 
-            with(NotificationManagerCompat.from(context)) {
-                notify(notificationIdCounter++, builder.build())
+            if (hasNotificationPermission(context)) {
+                with(NotificationManagerCompat.from(context)) {
+                    notify(notificationIdCounter++, builder.build())
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -283,8 +332,10 @@ object ZomorrodNotificationManager {
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
 
-            with(NotificationManagerCompat.from(context)) {
-                notify(notificationIdCounter++, builder.build())
+            if (hasNotificationPermission(context)) {
+                with(NotificationManagerCompat.from(context)) {
+                    notify(notificationIdCounter++, builder.build())
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -347,8 +398,10 @@ object ZomorrodNotificationManager {
             .setAutoCancel(true)
 
         try {
-            with(NotificationManagerCompat.from(context)) {
-                notify(999, builder.build())
+            if (hasNotificationPermission(context)) {
+                with(NotificationManagerCompat.from(context)) {
+                    notify(999, builder.build())
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

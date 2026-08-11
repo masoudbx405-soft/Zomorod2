@@ -48,14 +48,16 @@ fun DeliveryRouteScreen(
 ) {
     val context = LocalContext.current
 
-    // Filter orders ready for delivery or assigned/collected that are scheduled on map (excluding settled or returned orders)
+    // Filter orders ready for delivery (excluding settled, returned, or orders in collection/workshop stages)
     val deliveryOrders = orders.filter {
         (it.order.status == "READY_FOR_DELIVERY" ||
-                it.order.status == "DELIVERED_TO_WORKSHOP" ||
-                it.order.orderType == "DELIVERY") &&
+                (it.order.orderType == "DELIVERY" && it.order.status == "ASSIGNED")) &&
                 it.order.status != "DELIVERED_SETTLED" &&
                 it.order.status != "OFFICE_SETTLED" &&
-                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE"
+                it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE" &&
+                it.order.status != "DELIVERED_TO_WORKSHOP" &&
+                it.order.status != "COLLECTED_IN_INSPECTION" &&
+                it.order.status != "WASHING"
     }
 
     // Selected order on map or from cards
@@ -128,7 +130,6 @@ fun DeliveryRouteScreen(
 
         val matchesFilter = when (selectedFilter) {
             "READY" -> item.order.status == "READY_FOR_DELIVERY"
-            "WORKSHOP" -> item.order.status == "DELIVERED_TO_WORKSHOP"
             else -> true
         }
 
@@ -142,23 +143,52 @@ fun DeliveryRouteScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
-        // Section 1: Interactive Neshan Map View synchronized with Neshan API key
-        NeshanDeliveryMapView(
-            orders = deliveryOrders,
-            selectedOrder = selectedOrderForMap,
-            onSelectOrder = { order -> selectedOrderForMap = order },
-            onLaunchNeshanRoute = { order ->
-                NavigationUtils.launchNeshan(context, order.order.latitude, order.order.longitude, order.order.address)
-            },
-            onLaunchAllRoute = {
-                if (deliveryOrders.isNotEmpty()) {
-                    val first = deliveryOrders.first()
-                    NavigationUtils.launchNeshan(context, first.order.latitude, first.order.longitude, "مسیر کلی تحویل زمرد")
+        // 1. Delivery Mission Stats Overview Banner
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = CleanBluePrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${FarsiUtils.toFarsiDigits(deliveryOrders.size.toString())} فاکتور در نوبت تحویل",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = CleanTealContainer
+                ) {
+                    Text(
+                        text = "${FarsiUtils.toFarsiDigits(deliveryOrders.sumOf { it.items.size }.toString())} تخته فرش",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CleanTealAccent,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        }
 
         // Search & Filter Header
         Row(
@@ -167,7 +197,7 @@ fun DeliveryRouteScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "فاکتورهای آماده تحویل & بارگیری انبار:",
+                text = "فاکتورهای تحویل & بارگیری انبار:",
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -178,13 +208,13 @@ fun DeliveryRouteScreen(
                 FilterChip(
                     selected = selectedFilter == "ALL",
                     onClick = { selectedFilter = "ALL" },
-                    label = { Text("همه (${deliveryOrders.size})", fontSize = 10.sp) },
+                    label = { Text("همه (${FarsiUtils.toFarsiDigits(deliveryOrders.size.toString())})", fontSize = 10.sp) },
                     shape = RoundedCornerShape(8.dp)
                 )
                 FilterChip(
                     selected = selectedFilter == "READY",
                     onClick = { selectedFilter = "READY" },
-                    label = { Text("آماده (${readyCount})", fontSize = 10.sp) },
+                    label = { Text("آماده (${FarsiUtils.toFarsiDigits(readyCount.toString())})", fontSize = 10.sp) },
                     shape = RoundedCornerShape(8.dp)
                 )
             }
@@ -202,7 +232,7 @@ fun DeliveryRouteScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("جستجو در نام، کد قفسه یا بارکد فاکتور...", fontSize = 11.sp) },
+                placeholder = { Text("جستجو...", fontSize = 11.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -276,283 +306,6 @@ fun DeliveryRouteScreen(
                             orderForCleanWarehouseReturn = item
                         }
                     )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Interactive Neshan Styled Map Component with Pinned Route Stops & Warehouse Point.
- */
-@Composable
-private fun NeshanDeliveryMapView(
-    orders: List<OrderWithItems>,
-    selectedOrder: OrderWithItems?,
-    onSelectOrder: (OrderWithItems) -> Unit,
-    onLaunchNeshanRoute: (OrderWithItems) -> Unit,
-    onLaunchAllRoute: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column {
-            // Map Top Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1E293B))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Map,
-                        contentDescription = null,
-                        tint = Color(0xFF22C55E), // Neshan Green Accent
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "نقشه کلی مسیریابی تحویل و بارگیری",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF22C55E))
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "متصل به API سرویس نشان",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF22C55E),
-                    modifier = Modifier.clickable { onLaunchAllRoute() }
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Navigation,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "مسیریابی کل در نشان",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            // Canvas Map Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(Color(0xFFE5E5E0))
-            ) {
-                val neshanRoadColor = Color(0xFFFFFFFF)
-                val mainRoadColor = Color(0xFFFDE047)
-                val buildingColor = Color(0xFFD6D6CE)
-                val routePathColor = Color(0xFF0288D1)
-
-                // Render Map Grid & Route on Canvas
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val w = size.width
-                    val h = size.height
-
-                    // 1. Draw city background blocks
-                    drawRoundRect(
-                        color = buildingColor,
-                        topLeft = Offset(w * 0.1f, h * 0.1f),
-                        size = Size(w * 0.25f, h * 0.35f),
-                        cornerRadius = CornerRadius(8f, 8f)
-                    )
-                    drawRoundRect(
-                        color = buildingColor,
-                        topLeft = Offset(w * 0.45f, h * 0.15f),
-                        size = Size(w * 0.45f, h * 0.25f),
-                        cornerRadius = CornerRadius(8f, 8f)
-                    )
-                    drawRoundRect(
-                        color = buildingColor,
-                        topLeft = Offset(w * 0.12f, h * 0.55f),
-                        size = Size(w * 0.35f, h * 0.35f),
-                        cornerRadius = CornerRadius(8f, 8f)
-                    )
-                    drawRoundRect(
-                        color = buildingColor,
-                        topLeft = Offset(w * 0.55f, h * 0.52f),
-                        size = Size(w * 0.35f, h * 0.38f),
-                        cornerRadius = CornerRadius(8f, 8f)
-                    )
-
-                    // 2. Draw Secondary Roads
-                    val secondaryRoadStroke = Stroke(width = 12f)
-                    drawLine(neshanRoadColor, Offset(0f, h * 0.25f), Offset(w, h * 0.25f), strokeWidth = 14f)
-                    drawLine(neshanRoadColor, Offset(0f, h * 0.7f), Offset(w, h * 0.7f), strokeWidth = 14f)
-                    drawLine(neshanRoadColor, Offset(w * 0.4f, 0f), Offset(w * 0.4f, h), strokeWidth = 14f)
-
-                    // 3. Draw Main Highway / Avenue (Yellow)
-                    drawLine(mainRoadColor, Offset(0f, h * 0.48f), Offset(w, h * 0.48f), strokeWidth = 22f)
-                    drawLine(mainRoadColor, Offset(w * 0.72f, 0f), Offset(w * 0.72f, h), strokeWidth = 22f)
-
-                    // 4. Draw Route Line Connecting Warehouse -> Delivery Stops
-                    val path = Path().apply {
-                        moveTo(w * 0.15f, h * 0.8f) // Central Warehouse Point
-                        lineTo(w * 0.4f, h * 0.48f)
-                        lineTo(w * 0.65f, h * 0.3f)
-                        lineTo(w * 0.82f, h * 0.65f)
-                    }
-
-                    drawPath(
-                        path = path,
-                        color = routePathColor,
-                        style = Stroke(
-                            width = 8f,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 10f), 0f)
-                        )
-                    )
-                }
-
-                // Map Pins Overlay (Warehouse + Customers)
-                // Central Warehouse Pin
-                Box(
-                    modifier = Modifier
-                        .offset(x = 24.dp, y = 110.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = CleanPurpleAccent,
-                        shadowElevation = 4.dp
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Icon(Icons.Default.Warehouse, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("انبار زمرد", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                // Customer Pins mapped dynamically
-                val pinOffsets = listOf(
-                    Pair(120.dp, 60.dp),
-                    Pair(210.dp, 35.dp),
-                    Pair(260.dp, 95.dp)
-                )
-
-                orders.take(3).forEachIndexed { idx, item ->
-                    val offset = pinOffsets.getOrElse(idx) { Pair(150.dp, 80.dp) }
-                    val isSelected = selectedOrder?.order?.id == item.order.id
-
-                    Box(
-                        modifier = Modifier
-                            .offset(x = offset.first, y = offset.second)
-                            .clickable { onSelectOrder(item) }
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isSelected) Color(0xFFD97706) else CleanBluePrimary, // Gold if selected
-                            shadowElevation = if (isSelected) 8.dp else 4.dp,
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = if (isSelected) 3.dp else 1.5.dp,
-                                color = Color.White
-                            ),
-                            modifier = Modifier.size(if (isSelected) 36.dp else 30.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = FarsiUtils.toFarsiDigits((idx + 1).toString()),
-                                    color = Color.White,
-                                    fontSize = if (isSelected) 13.sp else 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Bottom Bar for Map - Selected Order Info Callout
-            selectedOrder?.let { sel ->
-                val rack = if (sel.order.rackCode.isNotBlank()) sel.order.rackCode else "تعیین نشده"
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(CleanBlueContainer.copy(alpha = 0.5f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = sel.order.customerName,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = CleanPurpleAccent
-                            ) {
-                                Text(
-                                    text = "قفسه: $rack",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = sel.order.address,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = { onLaunchNeshanRoute(sel) },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("مسیریابی نشان", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
                 }
             }
         }

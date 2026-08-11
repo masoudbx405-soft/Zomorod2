@@ -46,7 +46,8 @@ fun CollectionRouteScreen(
 
     // Filter pickup / collection orders (only those pending collection / invoice registration)
     val pickupOrders = orders.filter {
-        it.order.status == "ASSIGNED"
+        (it.order.orderType == "COLLECTION" || it.order.orderType.isBlank()) &&
+                it.order.status == "ASSIGNED"
     }
 
     val filteredOrders = pickupOrders.filter { item ->
@@ -62,6 +63,53 @@ fun CollectionRouteScreen(
             .fillMaxSize()
             .padding(12.dp)
     ) {
+        // 1. Mission Stats Overview Banner
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Inventory2,
+                        contentDescription = null,
+                        tint = CleanBluePrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${FarsiUtils.toFarsiDigits(pickupOrders.size.toString())} ماموریت جمع‌آوری",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = CleanPurpleContainer
+                ) {
+                    Text(
+                        text = "ثبت‌شده: ${FarsiUtils.toFarsiDigits(pickupOrders.sumOf { it.items.size }.toString())} تخته فرش",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CleanPurpleAccent,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
         // Search bar
         OutlinedTextField(
             value = searchQuery,

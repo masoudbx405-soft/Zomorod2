@@ -42,7 +42,7 @@ fun DriverLoginScreen(
     isLoading: Boolean,
     errorMessage: String?
 ) {
-    var phoneNumber by remember { mutableStateOf("09123456789") }
+    var phoneNumber by remember { mutableStateOf("") }
     var otpCode by remember { mutableStateOf("") }
 
     Box(
@@ -61,67 +61,28 @@ fun DriverLoginScreen(
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Main Brand Logo Image
+            // Main Brand Luxury Banner Image
             Card(
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CleanBluePrimary.copy(alpha = 0.15f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp)
+                    .padding(horizontal = 2.dp)
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .clip(RoundedCornerShape(20.dp))
                 ) {
-                    SubcomposeAsyncImage(
-                        model = R.drawable.zomorrod_banner,
-                        contentDescription = "تصویر لوگو و نشان قالیشویی زمرد",
+                    Image(
+                        painter = painterResource(id = R.drawable.img_zomorrod_auth_banner_1786387949616),
+                        contentDescription = "بنر کارخانه قالیشویی و خدمات فرش زمرد",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop,
-                        error = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        brush = Brush.linearGradient(
-                                            colors = listOf(Color(0xFF004D40), Color(0xFF00796B), Color(0xFF00897B))
-                                        )
-                                    )
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocalCarWash,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(56.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Text(
-                                        text = "قالیشویی زمرد",
-                                        color = Color.White,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "سامانه هوشمند مدیریت خدمات و رانندگان",
-                                        color = Color.White.copy(alpha = 0.85f),
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            }
-                        }
+                            .aspectRatio(16f / 9f),
+                        contentScale = ContentScale.Crop
                     )
                 }
             }
@@ -325,7 +286,7 @@ fun DriverLoginScreen(
                             value = otpCode,
                             onValueChange = { if (it.length <= 6) otpCode = it },
                             label = { Text("کد تایید یکبارمصرف پیامک‌شده", fontSize = 12.sp) },
-                            placeholder = { Text("مثال: ۱۲۳۴ یا ۲۰۱۱۷", fontSize = 11.sp, color = Color.Gray) },
+                            placeholder = { Text("کد ۵ رقمی پیامک‌شده را وارد کنید", fontSize = 11.sp, color = Color.Gray) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             leadingIcon = {

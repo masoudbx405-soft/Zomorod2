@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
-import com.example.data.model.PanelCatalogItem
-import com.example.data.model.PanelCatalogState
 import com.example.utils.FarsiUtils
 import com.example.ui.theme.CleanPurpleAccent
 import com.example.ui.theme.CleanPurpleContainer
@@ -43,8 +41,6 @@ import com.example.ui.theme.CleanTealAccent
 @Composable
 fun AddCarpetItemDialog(
     orderId: String,
-    panelCatalogState: PanelCatalogState = PanelCatalogState(),
-    onRefreshCatalog: () -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: (
         carpetType: String,
@@ -57,26 +53,6 @@ fun AddCarpetItemDialog(
         barcodeTag: String
     ) -> Unit
 ) {
-    val context = LocalContext.current
-    val fallbackCatalog = remember {
-        com.example.data.remote.supabase.ZomorrodSupabaseManager().getDefaultPanelCatalog()
-    }
-
-    val dynamicCarpetTypes = remember(panelCatalogState.carpetTypes) {
-        if (panelCatalogState.carpetTypes.isNotEmpty()) panelCatalogState.carpetTypes
-        else fallbackCatalog.filter { it.category == "CARPET_TYPE" }
-    }
-
-    val dynamicServices = remember(panelCatalogState.services) {
-        if (panelCatalogState.services.isNotEmpty()) panelCatalogState.services
-        else fallbackCatalog.filter { it.category == "SERVICE" }
-    }
-
-    val dynamicDefects = remember(panelCatalogState.defects) {
-        if (panelCatalogState.defects.isNotEmpty()) panelCatalogState.defects
-        else fallbackCatalog.filter { it.category == "DEFECT" }
-    }
-
     // Step 1: Pre-printed Stapled Barcode Tag
     var barcodeTagText by remember {
         mutableStateOf("ST-${orderId.takeLast(4)}-${(10..99).random()}")
@@ -93,28 +69,43 @@ fun AddCarpetItemDialog(
         )
     }
 
-    val initialCarpet = dynamicCarpetTypes.firstOrNull()
-    var selectedType by remember { mutableStateOf(initialCarpet?.name ?: "ماشینی ۶ متری (۲×۳)") }
+    val carpetTypes = listOf(
+        "ماشینی ۶ متری (۲×۳)",
+        "ماشینی ۹ متری (۲٫۵×۳٫۵)",
+        "ماشینی ۱۲ متری (۳×۴)",
+        "دستبافت نائین",
+        "دستبافت ابریشم",
+        "گلیم / گبه / جاجیم",
+        "موکت / سجاده / مدرن",
+        "سایر ابعاد (سفارشی)"
+    )
+    var selectedType by remember { mutableStateOf(carpetTypes[0]) }
     var typeDropdownExpanded by remember { mutableStateOf(false) }
 
-    var lengthText by remember { mutableStateOf(initialCarpet?.defaultLength?.toString() ?: "3.0") }
-    var widthText by remember { mutableStateOf(initialCarpet?.defaultWidth?.toString() ?: "2.0") }
-    var unitPriceText by remember { mutableStateOf(initialCarpet?.unitPrice?.toString() ?: "100000") }
+    var lengthText by remember { mutableStateOf("3.0") }
+    var widthText by remember { mutableStateOf("2.0") }
+    var unitPriceText by remember { mutableStateOf("100000") }
 
-    val selectedServices = remember {
-        mutableStateListOf<String>().apply {
-            val defaultSrv = dynamicServices.firstOrNull { it.isDefault } ?: dynamicServices.firstOrNull()
-            if (defaultSrv != null) add(defaultSrv.name)
-        }
-    }
+    val availableServices = listOf(
+        "شستشوی ویژه (اعلا)",
+        "ابریشم‌شویی",
+        "رفوگری و ریشه‌زنی",
+        "شیرازه‌دوزی",
+        "لکه‌بری تخصصی",
+        "ضدالعفونی و اتو"
+    )
+    val selectedServices = remember { mutableStateListOf("شستشوی ویژه (اعلا)") }
     var servicesDropdownExpanded by remember { mutableStateOf(false) }
 
-    val selectedDefects = remember {
-        mutableStateListOf<String>().apply {
-            val defaultDef = dynamicDefects.firstOrNull { it.isDefault } ?: dynamicDefects.firstOrNull()
-            if (defaultDef != null) add(defaultDef.name)
-        }
-    }
+    val availableDefects = listOf(
+        "بدون عیب اولیه",
+        "سوختگی جزئی",
+        "پوسیدگی حاشیه",
+        "پارگی / شکافتگی",
+        "بیدزدگی",
+        "تغییر رنگ / لکه شدید"
+    )
+    val selectedDefects = remember { mutableStateListOf("بدون عیب اولیه") }
     var defectsDropdownExpanded by remember { mutableStateOf(false) }
 
     var customNotes by remember { mutableStateOf("") }
@@ -123,11 +114,7 @@ fun AddCarpetItemDialog(
     val width = widthText.toDoubleOrNull() ?: 0.0
     val area = length * width
     val unitPrice = unitPriceText.toLongOrNull() ?: 0L
-    val basePrice = (area * unitPrice).toLong()
-    val servicesTotal = selectedServices.sumOf { sName ->
-        dynamicServices.find { it.name == sName }?.unitPrice ?: 0L
-    }
-    val totalPrice = basePrice + servicesTotal
+    val totalPrice = (area * unitPrice).toLong()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -199,68 +186,6 @@ fun AddCarpetItemDialog(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
-
-                // Panel Sync Status Banner
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = CleanTealAccent.copy(alpha = 0.12f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanTealAccent.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Icon(
-                                Icons.Default.CloudDone,
-                                contentDescription = null,
-                                tint = CleanTealAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = "اقلام و تعرفه‌های فراخوانی‌شده از پنل مرکزی",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = CleanTealAccent
-                                )
-                                Text(
-                                    text = if (panelCatalogState.isFromLiveServer) "وضعیت: متصل به سرور پنل مرکزی (panel.yaselectrical.ir)"
-                                           else "وضعیت: تعرفه‌های مصوب استاندارد زمرد",
-                                    fontSize = 9.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = onRefreshCatalog,
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            if (panelCatalogState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = CleanTealAccent
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.Sync,
-                                    contentDescription = "بروزرسانی از پنل",
-                                    tint = CleanTealAccent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
 
                 // 1. Stapled Barcode Card (Compact & Modern)
                 Surface(
@@ -364,24 +289,13 @@ fun AddCarpetItemDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 2. Carpet Type Selection (Dropdown Menu with Panel Items)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "۱. نوع و مشخصات فرش (تعرفه پنل):",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = CleanPurpleAccent
-                    )
-                    Text(
-                        text = "${dynamicCarpetTypes.size} مورد در پنل",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                // 2. Carpet Type Selection (Dropdown Menu)
+                Text(
+                    text = "۱. انتخاب نوع فرش:",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = CleanPurpleAccent
+                )
                 Spacer(modifier = Modifier.height(6.dp))
 
                 ExposedDropdownMenuBox(
@@ -393,7 +307,7 @@ fun AddCarpetItemDialog(
                         value = selectedType,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("نوع فرش و تعرفه مصوب") },
+                        label = { Text("نوع و دسته فرش") },
                         leadingIcon = {
                             Icon(Icons.Default.Layers, contentDescription = null, tint = CleanPurpleAccent)
                         },
@@ -410,47 +324,24 @@ fun AddCarpetItemDialog(
                         expanded = typeDropdownExpanded,
                         onDismissRequest = { typeDropdownExpanded = false }
                     ) {
-                        dynamicCarpetTypes.forEach { item ->
+                        carpetTypes.forEach { typeOption ->
                             DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(item.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = "نرخ پنل: ${FarsiUtils.formatPrice(item.unitPrice)} / ${item.unit}",
-                                                fontSize = 11.sp,
-                                                color = CleanPurpleAccent
-                                            )
-                                            if (item.description.isNotBlank()) {
-                                                Text(
-                                                    text = " • ${item.description}",
-                                                    fontSize = 10.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
+                                text = { Text(typeOption, fontSize = 13.sp) },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Default.Check,
                                         contentDescription = null,
-                                        tint = if (selectedType == item.name) CleanPurpleAccent else Color.Transparent,
+                                        tint = if (selectedType == typeOption) CleanPurpleAccent else Color.Transparent,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 },
                                 onClick = {
-                                    selectedType = item.name
+                                    selectedType = typeOption
                                     typeDropdownExpanded = false
-                                    if (item.defaultLength > 0.0) {
-                                        lengthText = item.defaultLength.toString()
-                                    }
-                                    if (item.defaultWidth > 0.0) {
-                                        widthText = item.defaultWidth.toString()
-                                    }
-                                    if (item.unitPrice > 0L) {
-                                        unitPriceText = item.unitPrice.toString()
+                                    when {
+                                        typeOption.contains("۱۲") -> { lengthText = "4.0"; widthText = "3.0" }
+                                        typeOption.contains("۹") -> { lengthText = "3.5"; widthText = "2.5" }
+                                        typeOption.contains("۶") -> { lengthText = "3.0"; widthText = "2.0" }
                                     }
                                 }
                             )
@@ -557,26 +448,15 @@ fun AddCarpetItemDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 4. Requested Services (Dropdown Menu from Panel)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CleanHands, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "۳. خدمات درخواستی و تکمیلی (پنل زمرد):",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = CleanPurpleAccent
-                        )
-                    }
+                // 4. Requested Services (Dropdown Menu)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CleanHands, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${dynamicServices.size} خدمت",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "۳. انتخاب خدمات درخواستی:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = CleanPurpleAccent
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -590,7 +470,7 @@ fun AddCarpetItemDialog(
                         value = if (selectedServices.isEmpty()) "هیچ خدماتی انتخاب نشده" else selectedServices.joinToString("، "),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("لیست خدمات و تعرفه‌ها") },
+                        label = { Text("لیست خدمات درخواستی") },
                         leadingIcon = {
                             Icon(Icons.Default.Build, contentDescription = null, tint = CleanPurpleAccent)
                         },
@@ -607,31 +487,10 @@ fun AddCarpetItemDialog(
                         expanded = servicesDropdownExpanded,
                         onDismissRequest = { servicesDropdownExpanded = false }
                     ) {
-                        dynamicServices.forEach { serviceItem ->
-                            val isSelected = selectedServices.contains(serviceItem.name)
+                        availableServices.forEach { service ->
+                            val isSelected = selectedServices.contains(service)
                             DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(serviceItem.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                            if (serviceItem.description.isNotBlank()) {
-                                                Text(serviceItem.description, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        if (serviceItem.unitPrice > 0L) {
-                                            Text(
-                                                text = "+ ${FarsiUtils.formatPrice(serviceItem.unitPrice)}",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = CleanPurpleAccent
-                                            )
-                                        }
-                                    }
-                                },
+                                text = { Text(service, fontSize = 13.sp) },
                                 leadingIcon = {
                                     Checkbox(
                                         checked = isSelected,
@@ -640,8 +499,8 @@ fun AddCarpetItemDialog(
                                     )
                                 },
                                 onClick = {
-                                    if (isSelected) selectedServices.remove(serviceItem.name)
-                                    else selectedServices.add(serviceItem.name)
+                                    if (isSelected) selectedServices.remove(service)
+                                    else selectedServices.add(service)
                                 }
                             )
                         }
@@ -654,18 +513,11 @@ fun AddCarpetItemDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        selectedServices.forEach { serviceName ->
-                            val srv = dynamicServices.find { it.name == serviceName }
+                        selectedServices.forEach { service ->
                             FilterChip(
                                 selected = true,
-                                onClick = { selectedServices.remove(serviceName) },
-                                label = {
-                                    Text(
-                                        if (srv != null && srv.unitPrice > 0L) "$serviceName (${FarsiUtils.formatPrice(srv.unitPrice)})"
-                                        else serviceName,
-                                        fontSize = 11.sp
-                                    )
-                                },
+                                onClick = { selectedServices.remove(service) },
+                                label = { Text(service, fontSize = 11.sp) },
                                 trailingIcon = {
                                     Icon(Icons.Default.Close, contentDescription = "حذف", modifier = Modifier.size(12.dp))
                                 },
@@ -680,26 +532,15 @@ fun AddCarpetItemDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 5. Initial Defects / Flaws (Dropdown Menu from Panel)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "۴. ثبت عیوب اولیه (قبل از شستشو):",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+                // 5. Initial Defects / Flaws (Dropdown Menu)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${dynamicDefects.size} مورد پنل",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "۴. ثبت عیوب اولیه (قبل از شستشو):",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -730,17 +571,10 @@ fun AddCarpetItemDialog(
                         expanded = defectsDropdownExpanded,
                         onDismissRequest = { defectsDropdownExpanded = false }
                     ) {
-                        dynamicDefects.forEach { defectItem ->
-                            val isSelected = selectedDefects.contains(defectItem.name)
+                        availableDefects.forEach { defect ->
+                            val isSelected = selectedDefects.contains(defect)
                             DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(defectItem.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                        if (defectItem.description.isNotBlank()) {
-                                            Text(defectItem.description, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                },
+                                text = { Text(defect, fontSize = 13.sp) },
                                 leadingIcon = {
                                     Checkbox(
                                         checked = isSelected,
@@ -749,13 +583,13 @@ fun AddCarpetItemDialog(
                                     )
                                 },
                                 onClick = {
-                                    if (defectItem.name.contains("بدون عیب")) {
+                                    if (defect == "بدون عیب اولیه") {
                                         selectedDefects.clear()
-                                        selectedDefects.add(defectItem.name)
+                                        selectedDefects.add("بدون عیب اولیه")
                                     } else {
-                                        selectedDefects.removeAll { it.contains("بدون عیب") }
-                                        if (isSelected) selectedDefects.remove(defectItem.name)
-                                        else selectedDefects.add(defectItem.name)
+                                        selectedDefects.remove("بدون عیب اولیه")
+                                        if (isSelected) selectedDefects.remove(defect)
+                                        else selectedDefects.add(defect)
                                     }
                                 }
                             )
@@ -769,18 +603,14 @@ fun AddCarpetItemDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        selectedDefects.forEach { defectName ->
+                        selectedDefects.forEach { defect ->
                             FilterChip(
                                 selected = true,
                                 onClick = {
-                                    selectedDefects.remove(defectName)
-                                    if (selectedDefects.isEmpty()) {
-                                        dynamicDefects.firstOrNull { it.name.contains("بدون عیب") }?.let {
-                                            selectedDefects.add(it.name)
-                                        }
-                                    }
+                                    selectedDefects.remove(defect)
+                                    if (selectedDefects.isEmpty()) selectedDefects.add("بدون عیب اولیه")
                                 },
-                                label = { Text(defectName, fontSize = 11.sp) },
+                                label = { Text(defect, fontSize = 11.sp) },
                                 trailingIcon = {
                                     Icon(Icons.Default.Close, contentDescription = "حذف", modifier = Modifier.size(12.dp))
                                 },
