@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -21,15 +23,31 @@ android {
   }
 
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+    val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+    val releaseStoreFile = file(keystorePath)
+    val hasReleaseKeystore = releaseStoreFile.exists() && releaseStoreFile.length() > 0
+
+    if (hasReleaseKeystore) {
+      create("release") {
+        storeFile = releaseStoreFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: ""
+      }
     }
+
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
+      val debugFile = file("${rootDir}/debug.keystore")
+      if (!debugFile.exists()) {
+        val base64File = file("${rootDir}/debug.keystore.base64")
+        if (base64File.exists()) {
+          try {
+            val bytes = Base64.getDecoder().decode(base64File.readText().trim())
+            debugFile.writeBytes(bytes)
+          } catch (_: Exception) {}
+        }
+      }
+      storeFile = debugFile
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
@@ -41,7 +59,7 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debugConfig")
     }
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }
