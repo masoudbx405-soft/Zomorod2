@@ -15,9 +15,13 @@ interface ChatMessageDao {
     @Query("SELECT * FROM chat_messages")
     suspend fun getAllChatMessagesDirect(): List<ChatMessageEntity>
 
+    @Query("SELECT * FROM chat_messages WHERE serverId = :serverId AND serverId != '' LIMIT 1")
+    suspend fun getMessageByServerId(serverId: String): ChatMessageEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMessage(message: ChatMessageEntity)
+    suspend fun insertMessage(message: ChatMessageEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessages(messages: List<ChatMessageEntity>)
 }
+

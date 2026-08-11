@@ -20,13 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.CleanBlueContainer
-import com.example.ui.theme.CleanBluePrimary
-import com.example.ui.theme.CleanPurpleAccent
-import com.example.ui.theme.CleanPurpleContainer
-import com.example.ui.theme.CleanRedAccent
-import com.example.ui.theme.CleanTealAccent
-import com.example.ui.theme.CleanTealContainer
+import com.example.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +49,6 @@ fun SettingsScreen(
     var autoPrintReceipt by remember { mutableStateOf(true) }
     var receiptCopies by remember { mutableStateOf("۲ نسخه (مشتری + راننده)") }
     var paperWidth by remember { mutableStateOf("۸۰ میلی‌متر (پوز/حرارتی)") }
-    var preferredMapApp by remember { mutableStateOf("مسیریاب نشان") }
     var scanSoundBeep by remember { mutableStateOf(true) }
 
     Column(
@@ -93,7 +86,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "مدیریت ارتباط سرور، چاپگر حرارتی، پشتیبان‌گیری و نقشه",
+                    text = "مدیریت ارتباط سرور، چاپگر حرارتی، پشتیبان‌گیری و اعلان‌ها",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -103,7 +96,10 @@ fun SettingsScreen(
         // Server Connection & Cloud Sync Settings (With Real Server Connection Test)
         SettingsSectionCard(
             title = "ارتباط با پنل مدیریت و همگام‌سازی ابری",
-            icon = Icons.Default.CloudSync
+            subtitle = "مدیریت ارتباط بی‌درنگ با وب‌سرور و دریافت فاکتورها",
+            icon = Icons.Default.CloudSync,
+            iconContainerColor = CleanBlueContainer,
+            iconTintColor = CleanBluePrimary
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -114,7 +110,7 @@ fun SettingsScreen(
                     },
                     label = { Text("آدرس وب‌سرویس و پنل مرکزی قالیشویی", fontSize = 11.sp) },
                     singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(18.dp)) },
+                    leadingIcon = { Icon(Icons.Default.Language, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(18.dp)) },
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -145,17 +141,17 @@ fun SettingsScreen(
                 if (connectionTestResult != null) {
                     val isSuccess = connectionTestResult.startsWith("موفقیت")
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = if (isSuccess) Color(0xFFDCFCE7) else Color(0xFFFFEBEE),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (isSuccess) Color(0xFF86EFAC) else Color(0xFFFFCDD2)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(10.dp),
+                            modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
+                                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
                                 contentDescription = null,
                                 tint = if (isSuccess) Color(0xFF16A34A) else Color(0xFFD32F2F),
                                 modifier = Modifier.size(20.dp)
@@ -173,6 +169,83 @@ fun SettingsScreen(
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                val isBgRunning by com.example.data.remote.ZomorrodBackgroundService.isServiceRunning.collectAsState()
+                val lastSyncTime by com.example.data.remote.ZomorrodBackgroundService.lastSyncTimestamp.collectAsState()
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isBgRunning) CleanBlueContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isBgRunning) CleanBluePrimaryLight.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isBgRunning) Color(0xFF10B981) else Color(0xFFEF4444))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = if (isBgRunning) "سرویس پس‌زمینه فعال است" else "سرویس پس‌زمینه متوقف است",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (isBgRunning) {
+                                            if (lastSyncTime != null) "آخرین بررسی آنلاین: ساعت $lastSyncTime" else "اعلان در نوار ابزار گوشی فعال است"
+                                        } else {
+                                            "برنامه در پس‌زمینه فعالیتی ندارد"
+                                        },
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (isBgRunning) {
+                                        com.example.data.remote.ZomorrodBackgroundService.stopService(context)
+                                        Toast.makeText(context, "سرویس پس‌زمینه و اعلان متوقف شد", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        com.example.data.remote.ZomorrodBackgroundService.startService(context)
+                                        Toast.makeText(context, "سرویس پس‌زمینه مجدداً راه‌اندازی شد", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isBgRunning) CleanRedAccent else CleanBluePrimary
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isBgRunning) Icons.Default.PowerSettingsNew else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isBgRunning) "خروج از پس‌زمینه" else "فعال‌سازی سرویس",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -193,7 +266,14 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = autoSyncEnabled,
-                        onCheckedChange = { autoSyncEnabled = it }
+                        onCheckedChange = { 
+                            autoSyncEnabled = it
+                            if (it) {
+                                com.example.data.remote.ZomorrodBackgroundService.startService(context)
+                            } else {
+                                com.example.data.remote.ZomorrodBackgroundService.stopService(context)
+                            }
+                        }
                     )
                 }
 
@@ -228,7 +308,8 @@ fun SettingsScreen(
                         Toast.makeText(context, "درخواست همگام‌سازی فوری با سرور ارسال شد", Toast.LENGTH_SHORT).show()
                     },
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth().height(44.dp)
                 ) {
                     Icon(Icons.Default.Sync, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -240,14 +321,20 @@ fun SettingsScreen(
         // Printer Settings Section (Focused and Real)
         SettingsSectionCard(
             title = "تنظیمات پرینتر حرارتی و دستگاه پوز",
-            icon = Icons.Default.Print
+            subtitle = "اتصال به چاپگر جیبی و صدور رسید تسویه و تحویل فرش",
+            icon = Icons.Default.PointOfSale,
+            iconContainerColor = CleanTealContainer,
+            iconTintColor = CleanTealAccent
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Connected status box
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (connectedPrinterName != null) CleanTealContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (connectedPrinterName != null) CleanTealAccent.copy(alpha = 0.4f) else Color.Transparent),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (connectedPrinterName != null) CleanTealContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (connectedPrinterName != null) CleanTealAccent.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -281,7 +368,7 @@ fun SettingsScreen(
                         Button(
                             onClick = onOpenPrinterDialog,
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
+                            colors = ButtonDefaults.buttonColors(containerColor = CleanTealAccent),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                             modifier = Modifier.height(36.dp)
                         ) {
@@ -296,7 +383,7 @@ fun SettingsScreen(
                 OutlinedButton(
                     onClick = onPrintTestReceipt,
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanTealAccent),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanTealAccent.copy(alpha = 0.6f)),
                     modifier = Modifier.fillMaxWidth().height(44.dp)
                 ) {
                     Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = CleanTealAccent, modifier = Modifier.size(18.dp))
@@ -323,8 +410,8 @@ fun SettingsScreen(
                             onClick = { paperWidth = width },
                             label = { Text(width, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CleanBlueContainer,
-                                selectedLabelColor = CleanBluePrimary
+                                selectedContainerColor = CleanTealContainer,
+                                selectedLabelColor = CleanTealAccent
                             )
                         )
                     }
@@ -371,8 +458,8 @@ fun SettingsScreen(
                             onClick = { receiptCopies = option },
                             label = { Text(option, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CleanBlueContainer,
-                                selectedLabelColor = CleanBluePrimary
+                                selectedContainerColor = CleanTealContainer,
+                                selectedLabelColor = CleanTealAccent
                             )
                         )
                     }
@@ -383,7 +470,10 @@ fun SettingsScreen(
         // Room Database Backup & Restore Card
         SettingsSectionCard(
             title = "پشتیبان‌گیری و بازیابی دیتابیس محلی (Room)",
-            icon = Icons.Default.Backup
+            subtitle = "ذخیره‌سازی و بازیابی آفلاین اطلاعات در پایگاه داده",
+            icon = Icons.Default.Storage,
+            iconContainerColor = CleanPurpleContainer,
+            iconTintColor = CleanPurpleAccent
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -395,16 +485,16 @@ fun SettingsScreen(
 
                 if (backupInfo != null && backupInfo.exists) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(14.dp),
+                        color = CleanPurpleContainer.copy(alpha = 0.35f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.3f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.TaskAlt, contentDescription = null, tint = CleanBluePrimary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.TaskAlt, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("آخرین فایل پشتیبان موجود:", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("آخرین فایل پشتیبان موجود:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CleanPurpleAccent)
                             }
                             Text("تاریخ ثبت: ${backupInfo.timestamp}", fontSize = 11.sp)
                             Text("حجم فایل: ${backupInfo.fileSizeKb} کیلوبایت (${backupInfo.ordersCount} سفارش)", fontSize = 11.sp)
@@ -418,9 +508,9 @@ fun SettingsScreen(
                 ) {
                     Button(
                         onClick = onBackupDatabase,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CleanBluePrimary),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CleanPurpleAccent),
+                        modifier = Modifier.weight(1f).height(44.dp)
                     ) {
                         Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -429,44 +519,13 @@ fun SettingsScreen(
 
                     OutlinedButton(
                         onClick = onRestoreDatabase,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CleanPurpleAccent.copy(alpha = 0.6f)),
+                        modifier = Modifier.weight(1f).height(44.dp)
                     ) {
                         Icon(Icons.Default.CloudDownload, contentDescription = null, tint = CleanPurpleAccent, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("بازیابی اطلاعات", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Navigation App Selection
-        SettingsSectionCard(
-            title = "مسیریاب و نقشه پیش‌فرض",
-            icon = Icons.Default.Navigation
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "برنامه مسیریاب ترجیحی جهت هدایت به آدرس مشتری:",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    listOf("مسیریاب نشان", "مسیریاب بلد", "گوگل مپس").forEach { appName ->
-                        FilterChip(
-                            selected = preferredMapApp == appName,
-                            onClick = { preferredMapApp = appName },
-                            label = { Text(appName, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.weight(1f),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFDCFCE7),
-                                selectedLabelColor = Color(0xFF16A34A)
-                            )
-                        )
+                        Text("بازیابی اطلاعات", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CleanPurpleAccent)
                     }
                 }
             }
@@ -475,7 +534,10 @@ fun SettingsScreen(
         // App Theme & Sound Settings
         SettingsSectionCard(
             title = "پوسته و صداهای سیستم",
-            icon = Icons.Default.Palette
+            subtitle = "شخصی‌سازی ظاهر برنامه و هشدارهای صوتی اسکن",
+            icon = Icons.Default.Palette,
+            iconContainerColor = CleanBlueContainer,
+            iconTintColor = CleanBluePrimary
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
@@ -483,17 +545,37 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "پوسته تاریک (حالت شب)",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "مناسب برای کار در شب و کاهش مصرف باتری",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CleanBlueContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = null,
+                                tint = CleanBluePrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "پوسته تاریک (حالت شب)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "مناسب برای کار در شب و کاهش مصرف باتری",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Switch(
                         checked = isDarkMode,
@@ -501,24 +583,44 @@ fun SettingsScreen(
                     )
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "صدای بوق (Beep) هنگام اسکن بارکد",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "تایید صوتی اسکن بارکدهای منگنه فرش و قفسه",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CleanTealContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.VolumeUp,
+                                contentDescription = null,
+                                tint = CleanTealAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "صدای بوق (Beep) هنگام اسکن بارکد",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "تایید صوتی اسکن بارکدهای منگنه فرش و قفسه",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Switch(
                         checked = scanSoundBeep,
@@ -539,7 +641,7 @@ fun SettingsScreen(
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("ذخیره تنظیمات", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
@@ -566,38 +668,71 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSectionCard(
     title: String,
+    subtitle: String? = null,
     icon: ImageVector,
+    iconContainerColor: Color = CleanBlueContainer,
+    iconTintColor: Color = CleanBluePrimary,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp,
+            hoveredElevation = 2.dp
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = CleanBluePrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(iconContainerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTintColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                thickness = 0.8.dp
+            )
 
             content()
         }

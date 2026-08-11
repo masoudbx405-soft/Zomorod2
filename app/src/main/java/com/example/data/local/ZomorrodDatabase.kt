@@ -28,7 +28,7 @@ import com.example.data.local.entities.SyncQueueEntity
         SyncQueueEntity::class,
         DriverSettlementEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class ZomorrodDatabase : RoomDatabase() {

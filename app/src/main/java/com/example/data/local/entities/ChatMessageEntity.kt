@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class ChatMessageEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
+    val serverId: String = "",
     val orderId: String = "GENERAL",
     val sender: String, // "DRIVER" or "DISPATCHER"
     val senderName: String,
@@ -14,3 +15,4 @@ data class ChatMessageEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false
 )
+

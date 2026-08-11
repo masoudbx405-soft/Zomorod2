@@ -219,13 +219,23 @@ class ZomorrodBackgroundService : Service() {
     private fun stopForegroundService() {
         _isServiceRunning.value = false
         syncLoopJob?.cancel()
-        serviceScope.cancel()
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
             }
         } catch (_: Exception) {}
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            notificationManager?.cancel(NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing foreground notification", e)
+        }
         stopSelf()
     }
 

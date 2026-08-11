@@ -386,20 +386,61 @@ class ZomorrodRepository(
                 // 6. Fetch incoming chat/dispatcher messages
                 try {
                     val remoteMessages = supabaseService.fetchChatMessages("DRV-101")
-                    val localMessages = chatMessageDao?.getAllChatMessagesDirect() ?: emptyList()
-                    val existingKeys = localMessages.map { "${it.messageText}_${it.timestamp}" }.toSet()
-                    for (msg in remoteMessages) {
-                        val entity = msg.toEntity()
-                        val key = "${entity.messageText}_${entity.timestamp}"
-                        if (!existingKeys.contains(key)) {
-                            chatMessageDao?.insertMessage(entity)
-                        }
-                    }
+                    syncRemoteChatMessages(remoteMessages, onNewMessage = null)
                 } catch (_: Exception) {}
 
                 true
             } catch (e: Exception) {
                 false
+            }
+        }
+    }
+
+    suspend fun syncRemoteChatMessages(
+        remoteMessages: List<com.example.data.remote.supabase.SupabaseChatMessageDto>,
+        onNewMessage: ((ChatMessageEntity) -> Unit)? = null
+    ) = withContext(Dispatchers.IO) {
+        if (remoteMessages.isEmpty()) return@withContext
+        val localMessages = chatMessageDao.getAllChatMessagesDirect()
+
+        val knownServerIds = localMessages.mapNotNull { it.serverId.ifBlank { null } }.toSet()
+
+        fun makeSignature(sender: String, text: String, ts: Long): String {
+            val roundedSec = ts / 1000L
+            return "${sender.uppercase()}_${text.trim()}_$roundedSec"
+        }
+
+        val knownSignatures = localMessages.map {
+            makeSignature(it.sender, it.messageText, it.timestamp)
+        }.toMutableSet()
+
+        val isInitialDbEmpty = localMessages.isEmpty()
+        val currentTime = System.currentTimeMillis()
+
+        for (dto in remoteMessages) {
+            if (dto.text.isBlank()) continue
+            val entity = dto.toEntity()
+
+            val isDuplicateById = entity.serverId.isNotBlank() && knownServerIds.contains(entity.serverId)
+            val isDuplicateBySig = knownSignatures.contains(makeSignature(entity.sender, entity.messageText, entity.timestamp))
+            val isDuplicateByFuzzy = localMessages.any { local ->
+                local.sender.equals(entity.sender, ignoreCase = true) &&
+                local.messageText.trim() == entity.messageText.trim() &&
+                Math.abs(local.timestamp - entity.timestamp) < 180_000L
+            }
+
+            if (!isDuplicateById && !isDuplicateBySig && !isDuplicateByFuzzy) {
+                chatMessageDao.insertMessage(entity)
+                knownSignatures.add(makeSignature(entity.sender, entity.messageText, entity.timestamp))
+
+                // Only notify if:
+                // 1) sender is not DRIVER (message is from dispatcher)
+                // 2) local DB was not empty on app launch (prevents historical replay of old messages)
+                // 3) message was created recently (within last 10 minutes)
+                val isRecent = Math.abs(currentTime - entity.timestamp) < 600_000L
+                if (entity.sender != "DRIVER" && !isInitialDbEmpty && isRecent) {
+                    onNewMessage?.invoke(entity)
+                }
             }
         }
     }
@@ -442,22 +483,10 @@ class ZomorrodRepository(
                 }
             } catch (_: Exception) {}
 
-            // 3. Fetch incoming chat / dispatcher messages from Supabase web panel
+            // 3. Fetch incoming chat / dispatcher messages from Supabase web panel with deduplication
             try {
                 val remoteMessages = supabaseService.fetchChatMessages(driverId)
-                val localMessages = chatMessageDao?.getAllChatMessagesDirect() ?: emptyList()
-                val existingKeys = localMessages.map { "${it.messageText}_${it.timestamp}" }.toSet()
-
-                for (remoteMsg in remoteMessages) {
-                    val entity = remoteMsg.toEntity()
-                    val key = "${entity.messageText}_${entity.timestamp}"
-                    if (!existingKeys.contains(key)) {
-                        chatMessageDao?.insertMessage(entity)
-                        if (entity.sender != "DRIVER") {
-                            onNewMessage?.invoke(entity)
-                        }
-                    }
-                }
+                syncRemoteChatMessages(remoteMessages, onNewMessage)
             } catch (_: Exception) {}
 
             // 4. Push local unsynced orders

@@ -404,14 +404,32 @@ class ZomorrodSupabaseManager(
                 val list = mutableListOf<SupabaseChatMessageDto>()
                 for (i in 0 until arr.length()) {
                     val obj = arr.optJSONObject(i) ?: continue
+                    val text = obj.optString("text").ifBlank {
+                        obj.optString("message").ifBlank {
+                            obj.optString("message_text").ifBlank { obj.optString("content", "") }
+                        }
+                    }
+                    if (text.isBlank()) continue
+
+                    val id = obj.optString("id").ifBlank { obj.optString("message_id") }
+                    val sender = obj.optString("sender").ifBlank { obj.optString("role", "DISPATCHER") }
+                    val senderName = obj.optString("sender_name").ifBlank {
+                        obj.optString("senderName").ifBlank { obj.optString("name", "دیسپچینگ مرکزی زمرد") }
+                    }
+                    val ts = obj.optString("timestamp").ifBlank {
+                        obj.optString("created_at").ifBlank {
+                            obj.optString("createdAt").ifBlank { obj.optString("time", "") }
+                        }
+                    }
+
                     list.add(
                         SupabaseChatMessageDto(
-                            id = obj.optString("id"),
-                            driver_id = obj.optString("driver_id", driverId),
-                            sender = obj.optString("sender"),
-                            sender_name = obj.optString("sender_name"),
-                            text = obj.optString("text"),
-                            timestamp = obj.optString("timestamp")
+                            id = id,
+                            driver_id = obj.optString("driver_id").ifBlank { obj.optString("driverId", driverId) },
+                            sender = sender,
+                            sender_name = senderName,
+                            text = text,
+                            timestamp = ts
                         )
                     )
                 }

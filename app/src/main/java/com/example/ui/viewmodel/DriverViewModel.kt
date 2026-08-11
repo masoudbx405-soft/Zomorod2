@@ -569,13 +569,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         if (text.isBlank()) return
         val currentOrder = selectedOrder.value?.order?.id ?: "GENERAL"
         viewModelScope.launch {
-            repository.sendChatMessage(currentOrder, text, sender = "DRIVER")
-            delay(1500)
-            repository.sendChatMessage(
-                currentOrder,
-                "پیام شما توسط دیسپچر متمرکز panel.yaselectrical.ir دریافت گردید.",
-                sender = "DISPATCHER"
-            )
+            repository.sendChatMessage(currentOrder, text.trim(), sender = "DRIVER")
         }
     }
 

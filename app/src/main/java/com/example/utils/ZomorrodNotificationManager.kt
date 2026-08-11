@@ -343,20 +343,32 @@ object ZomorrodNotificationManager {
     }
 
     /**
-     * ساخت اعلان ماندگار برای Foreground Service پس‌زمینه
+     * ساخت اعلان ماندگار برای Foreground Service پس‌زمینه به همراه دکمه خروج
      */
     fun createServiceNotification(
         context: Context,
         statusText: String = "سامانه زمرد در پس‌زمینه فعال است | آماده دریافت سفارشات و پیام‌ها"
     ): Notification {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
 
-        val pendingIntent = PendingIntent.getActivity(
+        val openAppPendingIntent = PendingIntent.getActivity(
             context,
             0,
-            intent,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // اینتنت خروج و متوقف ساختن کامل سرویس پس‌زمینه
+        val stopServiceIntent = Intent(context, com.example.data.remote.ZomorrodBackgroundService::class.java).apply {
+            action = com.example.data.remote.ZomorrodBackgroundService.ACTION_STOP
+        }
+
+        val stopServicePendingIntent = PendingIntent.getService(
+            context,
+            1102,
+            stopServiceIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -367,7 +379,12 @@ object ZomorrodNotificationManager {
             .setStyle(NotificationCompat.BigTextStyle().bigText(statusText))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(openAppPendingIntent)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "خروج و توقف سرویس",
+                stopServicePendingIntent
+            )
             .build()
     }
 

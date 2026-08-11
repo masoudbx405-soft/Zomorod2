@@ -236,18 +236,63 @@ fun SupabaseOrderDto.toEntity(): OrderEntity {
     )
 }
 
-fun SupabaseChatMessageDto.toEntity(): ChatMessageEntity {
-    val ts = try {
-        timestamp.toLongOrNull() ?: System.currentTimeMillis()
-    } catch (_: Exception) {
-        System.currentTimeMillis()
+fun parseTimestampToEpochMillis(rawTimestamp: String?): Long {
+    if (rawTimestamp.isNullOrBlank()) return System.currentTimeMillis()
+    val clean = rawTimestamp.trim()
+
+    // 1. Check if numeric epoch timestamp (seconds or millis)
+    clean.toLongOrNull()?.let { num ->
+        return if (num < 10_000_000_000L) num * 1000L else num
     }
+
+    // 2. Try parsing ISO-8601 with java.time if available (Android 8.0+)
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        try {
+            return java.time.Instant.parse(clean).toEpochMilli()
+        } catch (_: Exception) {}
+        try {
+            return java.time.OffsetDateTime.parse(clean).toInstant().toEpochMilli()
+        } catch (_: Exception) {}
+        try {
+            return java.time.LocalDateTime.parse(clean).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (_: Exception) {}
+    }
+
+    // 3. Fallback SimpleDateFormat patterns
+    val formats = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy/MM/dd HH:mm:ss"
+    )
+    for (fmt in formats) {
+        try {
+            val sdf = java.text.SimpleDateFormat(fmt, java.util.Locale.US)
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(clean)
+            if (date != null) return date.time
+        } catch (_: Exception) {}
+    }
+
+    return System.currentTimeMillis()
+}
+
+fun SupabaseChatMessageDto.toEntity(): ChatMessageEntity {
+    val ts = parseTimestampToEpochMillis(this.timestamp)
     return ChatMessageEntity(
         id = 0L,
+        serverId = this.id.trim(),
         orderId = if (this.driver_id.isNotBlank()) this.driver_id else "GENERAL",
         sender = if (this.sender.equals("driver", ignoreCase = true) || this.sender.equals("DRIVER", ignoreCase = true)) "DRIVER" else "DISPATCHER",
         senderName = if (this.sender_name.isNotBlank()) this.sender_name else "دیسپچینگ مرکزی زمرد",
-        messageText = this.text,
+        messageText = this.text.trim(),
         timestamp = ts,
         isSynced = true
     )
