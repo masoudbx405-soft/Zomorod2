@@ -25,12 +25,15 @@ jobs:
 
       # بازسازی فایل .env از secrets یا fallback به .env.example
       - name: Write .env from secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DRIVER_API_KEY: ${{ secrets.DRIVER_API_KEY }}
         run: |
-          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then
-            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+          if [ -n "$SUPABASE_URL" ]; then
+            echo "SUPABASE_URL=$SUPABASE_URL" > .env
           fi
-          if [ -n "${{ secrets.DRIVER_API_KEY }}" ]; then
-            echo "DRIVER_API_KEY=${{ secrets.DRIVER_API_KEY }}" >> .env
+          if [ -n "$DRIVER_API_KEY" ]; then
+            echo "DRIVER_API_KEY=$DRIVER_API_KEY" >> .env
           fi
           if [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
@@ -45,8 +48,12 @@ jobs:
 
       # اگر secret کیستور اختصاصی Release ست شده بود، آن را بازسازی کن
       - name: Decode signing keystore
-        if: "${{ secrets.KEYSTORE_BASE64 != '' }}"
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-upload-key.jks
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > my-upload-key.jks
+          fi
 
       - name: Build release APK
         env:
