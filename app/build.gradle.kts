@@ -38,16 +38,38 @@ android {
 
     create("debugConfig") {
       val debugFile = file("${rootDir}/debug.keystore")
-      if (!debugFile.exists()) {
+      if (!debugFile.exists() || debugFile.length() == 0L) {
         val base64File = file("${rootDir}/debug.keystore.base64")
-        if (base64File.exists()) {
+        if (base64File.exists() && base64File.length() > 0) {
           try {
             val bytes = Base64.getDecoder().decode(base64File.readText().trim())
             debugFile.writeBytes(bytes)
           } catch (_: Exception) {}
         }
       }
-      storeFile = debugFile
+
+      if (!debugFile.exists() || debugFile.length() == 0L) {
+        try {
+          val process = ProcessBuilder(
+            "keytool", "-genkeypair",
+            "-keystore", debugFile.absolutePath,
+            "-storepass", "android",
+            "-keypass", "android",
+            "-alias", "androiddebugkey",
+            "-dname", "CN=Android Debug,O=Android,C=US",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000"
+          ).start()
+          process.waitFor()
+        } catch (_: Exception) {}
+      }
+
+      if (debugFile.exists() && debugFile.length() > 0) {
+        storeFile = debugFile
+      } else {
+        storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+      }
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
