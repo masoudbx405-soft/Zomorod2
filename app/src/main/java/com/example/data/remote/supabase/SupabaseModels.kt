@@ -205,28 +205,33 @@ fun com.example.data.local.entities.CarpetItemEntity.toSupabaseDto(): SupabaseCa
 }
 
 fun SupabaseOrderDto.toEntity(): OrderEntity {
+    val normType = when (this.order_type.uppercase()) {
+        "DELIVERY", "تحویل" -> "DELIVERY"
+        "COLLECTION", "PICKUP", "جمع‌آوری" -> "PICKUP"
+        else -> if (this.order_type.isNotBlank()) this.order_type.uppercase() else "PICKUP"
+    }
     return OrderEntity(
         id = this.id,
         orderSequence = 1,
         trackingCode = if (this.tracking_code.isNotBlank()) this.tracking_code else this.id,
         subscriptionCode = "SUB-${this.id.takeLast(4)}",
-        customerName = this.customer_name,
+        customerName = this.customer_name.ifBlank { "مشتری قالیشویی زمرد" },
         customerPhone = this.customer_phone,
-        address = this.customer_address,
+        address = this.customer_address.ifBlank { "تهران" },
         notes = this.notes,
-        latitude = this.lat,
-        longitude = this.lng,
-        orderType = this.order_type,
-        status = this.status,
-        stage = this.stage,
+        latitude = if (this.lat != 0.0) this.lat else 35.7796,
+        longitude = if (this.lng != 0.0) this.lng else 51.4058,
+        orderType = normType,
+        status = this.status.ifBlank { "ASSIGNED" },
+        stage = this.stage.ifBlank { "pickup_assigned" },
         totalAmount = this.total_amount,
         discountAmount = this.discount_amount,
         paidAmount = this.paid_amount,
         finalPayable = if (this.final_payable > 0) this.final_payable else (this.total_amount - this.discount_amount).coerceAtLeast(0L),
-        paymentMethod = this.payment_method,
-        paymentStatus = this.payment_status,
-        driverId = this.driver_id,
-        driverName = this.driver_name,
+        paymentMethod = this.payment_method.ifBlank { "unpaid" },
+        paymentStatus = this.payment_status.ifBlank { "unpaid" },
+        driverId = this.driver_id.ifBlank { "DRV-101" },
+        driverName = this.driver_name.ifBlank { "سفیر مسعود بختیاری" },
         rackCode = this.rack_code,
         cleanRackCode = this.clean_rack_code,
         returnReason = this.return_reason,

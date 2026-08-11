@@ -191,8 +191,11 @@ class ZomorrodBackgroundService : Service() {
         val currentTime = timeFormat.format(Date())
         val farsiTime = FarsiUtils.toFarsiDigits(currentTime)
 
+        val prefs = applicationContext.getSharedPreferences("zomorrod_driver_prefs", Context.MODE_PRIVATE)
+        val driverId = prefs.getString("driver_id", "DRV-101") ?: "DRV-101"
+
         repository.performBackgroundSync(
-            driverId = "DRV-101",
+            driverId = driverId,
             onNewOrder = { order ->
                 Log.d(TAG, "New mission received from web panel: ${order.id}")
                 ZomorrodNotificationManager.sendNewOrderNotification(

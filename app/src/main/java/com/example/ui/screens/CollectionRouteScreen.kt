@@ -46,8 +46,10 @@ fun CollectionRouteScreen(
 
     // Filter pickup / collection orders (only those pending collection / invoice registration)
     val pickupOrders = orders.filter {
-        (it.order.orderType == "COLLECTION" || it.order.orderType.isBlank()) &&
-                it.order.status == "ASSIGNED"
+        val isPickup = it.order.orderType.equals("COLLECTION", ignoreCase = true) ||
+                       it.order.orderType.equals("PICKUP", ignoreCase = true) ||
+                       it.order.orderType.isBlank()
+        isPickup && (it.order.status == "ASSIGNED" || it.order.status == "pickup_assigned")
     }
 
     val filteredOrders = pickupOrders.filter { item ->

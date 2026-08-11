@@ -147,12 +147,15 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
     }
 
     val pendingPickupCount = orders.count {
-        (it.order.orderType == "COLLECTION" || it.order.orderType.isBlank()) &&
-                it.order.status == "ASSIGNED"
+        val isPickup = it.order.orderType.equals("COLLECTION", ignoreCase = true) ||
+                       it.order.orderType.equals("PICKUP", ignoreCase = true) ||
+                       it.order.orderType.isBlank()
+        isPickup && (it.order.status == "ASSIGNED" || it.order.status == "pickup_assigned")
     }
     val pendingWarehouseCount = orders.count {
         val status = it.order.status
-        (status == "COLLECTED_IN_INSPECTION" || (status == "ASSIGNED" && it.items.isNotEmpty() && it.order.orderType != "DELIVERY")) &&
+        val isPickup = !it.order.orderType.equals("DELIVERY", ignoreCase = true)
+        (status == "COLLECTED_IN_INSPECTION" || (status == "ASSIGNED" && it.items.isNotEmpty() && isPickup)) &&
                 status != "DELIVERED_TO_WORKSHOP" &&
                 status != "WASHING" &&
                 status != "READY_FOR_DELIVERY" &&
@@ -161,7 +164,9 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                 status != "RETURNED_TO_CLEAN_WAREHOUSE"
     }
     val pendingDeliveryCount = orders.count {
-        (it.order.status == "READY_FOR_DELIVERY" || (it.order.orderType == "DELIVERY" && it.order.status == "ASSIGNED")) &&
+        val isDelivery = it.order.orderType.equals("DELIVERY", ignoreCase = true) ||
+                         it.order.status == "READY_FOR_DELIVERY"
+        isDelivery &&
                 it.order.status != "DELIVERED_SETTLED" &&
                 it.order.status != "OFFICE_SETTLED" &&
                 it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE" &&
@@ -170,7 +175,9 @@ fun MainDriverScreen(viewModel: DriverViewModel) {
                 it.order.status != "WASHING"
     }
     val pendingSettlementCount = orders.count {
-        (it.order.status == "READY_FOR_DELIVERY" || (it.order.orderType == "DELIVERY" && it.order.status == "ASSIGNED")) &&
+        val isDelivery = it.order.orderType.equals("DELIVERY", ignoreCase = true) ||
+                         it.order.status == "READY_FOR_DELIVERY"
+        isDelivery &&
                 it.order.status != "DELIVERED_SETTLED" &&
                 it.order.status != "OFFICE_SETTLED" &&
                 it.order.status != "RETURNED_TO_CLEAN_WAREHOUSE" &&

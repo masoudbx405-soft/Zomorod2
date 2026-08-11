@@ -321,7 +321,12 @@ class ZomorrodRepository(
         }
     }
 
-    suspend fun syncWithWebPanel(serverBaseUrl: String = "https://panel.yaselectrical.ir"): Boolean {
+    suspend fun syncWithWebPanel(
+        serverBaseUrl: String = "https://panel.yaselectrical.ir",
+        driverId: String = "DRV-101",
+        onNewOrder: ((OrderEntity) -> Unit)? = null,
+        onNewMessage: ((ChatMessageEntity) -> Unit)? = null
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 supabaseService.updateConfig(serverBaseUrl)
@@ -354,27 +359,33 @@ class ZomorrodRepository(
                 }
 
                 // 4. Sync telemetry
-                val driver = driverDao?.getDriverDirect("DRV-101")
+                val driver = driverDao?.getDriverDirect(driverId)
                 if (driver != null) {
                     supabaseService.syncTelemetry(driver)
                 }
 
                 // 5. Fetch updated/new orders assigned to this driver from Supabase panel
                 try {
-                    val remoteOrders = supabaseService.fetchAssignedOrders("DRV-101")
+                    val remoteOrders = supabaseService.fetchAssignedOrders(driverId)
                     if (remoteOrders.isNotEmpty()) {
                         for (remoteOrder in remoteOrders) {
                             val localExisting = orderDao.getOrderWithItemsById(remoteOrder.id)
                             if (localExisting == null) {
-                                orderDao.insertOrder(remoteOrder.toEntity())
+                                val newEntity = remoteOrder.toEntity()
+                                orderDao.insertOrder(newEntity)
+                                onNewOrder?.invoke(newEntity)
                             } else {
                                 val updated = localExisting.order.copy(
-                                    status = remoteOrder.status,
-                                    stage = remoteOrder.stage,
+                                    customerName = if (remoteOrder.customer_name.isNotBlank()) remoteOrder.customer_name else localExisting.order.customerName,
+                                    customerPhone = if (remoteOrder.customer_phone.isNotBlank()) remoteOrder.customer_phone else localExisting.order.customerPhone,
+                                    address = if (remoteOrder.customer_address.isNotBlank()) remoteOrder.customer_address else localExisting.order.address,
+                                    orderType = if (remoteOrder.order_type.isNotBlank()) remoteOrder.toEntity().orderType else localExisting.order.orderType,
+                                    status = if (remoteOrder.status.isNotBlank()) remoteOrder.status else localExisting.order.status,
+                                    stage = if (remoteOrder.stage.isNotBlank()) remoteOrder.stage else localExisting.order.stage,
                                     totalAmount = if (remoteOrder.total_amount > 0) remoteOrder.total_amount else localExisting.order.totalAmount,
                                     finalPayable = if (remoteOrder.final_payable > 0) remoteOrder.final_payable else localExisting.order.finalPayable,
                                     paidAmount = if (remoteOrder.paid_amount > 0) remoteOrder.paid_amount else localExisting.order.paidAmount,
-                                    paymentStatus = remoteOrder.payment_status,
+                                    paymentStatus = if (remoteOrder.payment_status.isNotBlank()) remoteOrder.payment_status else localExisting.order.paymentStatus,
                                     rackCode = if (remoteOrder.rack_code.isNotBlank()) remoteOrder.rack_code else localExisting.order.rackCode
                                 )
                                 orderDao.updateOrder(updated)
@@ -385,8 +396,8 @@ class ZomorrodRepository(
 
                 // 6. Fetch incoming chat/dispatcher messages
                 try {
-                    val remoteMessages = supabaseService.fetchChatMessages("DRV-101")
-                    syncRemoteChatMessages(remoteMessages, onNewMessage = null)
+                    val remoteMessages = supabaseService.fetchChatMessages(driverId)
+                    syncRemoteChatMessages(remoteMessages, onNewMessage)
                 } catch (_: Exception) {}
 
                 true
@@ -469,12 +480,16 @@ class ZomorrodRepository(
                             onNewOrder?.invoke(newEntity)
                         } else {
                             val updated = localExisting.order.copy(
-                                status = remoteOrder.status,
-                                stage = remoteOrder.stage,
+                                customerName = if (remoteOrder.customer_name.isNotBlank()) remoteOrder.customer_name else localExisting.order.customerName,
+                                customerPhone = if (remoteOrder.customer_phone.isNotBlank()) remoteOrder.customer_phone else localExisting.order.customerPhone,
+                                address = if (remoteOrder.customer_address.isNotBlank()) remoteOrder.customer_address else localExisting.order.address,
+                                orderType = if (remoteOrder.order_type.isNotBlank()) remoteOrder.toEntity().orderType else localExisting.order.orderType,
+                                status = if (remoteOrder.status.isNotBlank()) remoteOrder.status else localExisting.order.status,
+                                stage = if (remoteOrder.stage.isNotBlank()) remoteOrder.stage else localExisting.order.stage,
                                 totalAmount = if (remoteOrder.total_amount > 0) remoteOrder.total_amount else localExisting.order.totalAmount,
                                 finalPayable = if (remoteOrder.final_payable > 0) remoteOrder.final_payable else localExisting.order.finalPayable,
                                 paidAmount = if (remoteOrder.paid_amount > 0) remoteOrder.paid_amount else localExisting.order.paidAmount,
-                                paymentStatus = remoteOrder.payment_status,
+                                paymentStatus = if (remoteOrder.payment_status.isNotBlank()) remoteOrder.payment_status else localExisting.order.paymentStatus,
                                 rackCode = if (remoteOrder.rack_code.isNotBlank()) remoteOrder.rack_code else localExisting.order.rackCode
                             )
                             orderDao.updateOrder(updated)

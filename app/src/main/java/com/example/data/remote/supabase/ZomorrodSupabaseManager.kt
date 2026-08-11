@@ -50,11 +50,18 @@ class ZomorrodSupabaseManager(
         if (key.isNotBlank()) this.driverApiKey = key.trim()
     }
 
-    private fun baseRequest(url: String) = Request.Builder()
-        .url(url)
-        .addHeader("x-driver-api-key", driverApiKey)
-        .addHeader("Content-Type", "application/json")
-        .addHeader("Accept", "application/json")
+    private fun baseRequest(url: String): Request.Builder {
+        val builder = Request.Builder()
+            .url(url)
+            .addHeader("x-driver-api-key", driverApiKey)
+            .addHeader("apikey", driverApiKey)
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "application/json")
+        if (driverApiKey.isNotBlank()) {
+            builder.addHeader("Authorization", "Bearer $driverApiKey")
+        }
+        return builder
+    }
 
     // ==========================================================================
     // سلامت اتصال
@@ -233,62 +240,290 @@ class ZomorrodSupabaseManager(
     }
 
     /**
-     * دریافت مسیر جمع‌آوری (routes/collection) و مسیر تحویل
-     * (routes/delivery) از driver-api و ترکیب هر دو در یک لیست.
+     * دریافت هوشمند و مقاوم سفارشات اختصاص‌یافته به راننده از چندین مسیر احتمالی سرور و پنل وب:
+     * - driver-api/routes/collection و delivery
+     * - driver-api/orders
+     * - driver-api/routes
+     * - جدول orders در دیتابیس Supabase
      */
     suspend fun fetchDriverOrders(driverId: String): List<SupabaseOrderDto> = withContext(Dispatchers.IO) {
-        val result = mutableListOf<SupabaseOrderDto>()
-        try {
-            result += fetchRoute("${functionsBase()}/driver-api/routes/collection?driverId=$driverId", "PICKUP", driverId)
-            result += fetchRoute("${functionsBase()}/driver-api/routes/delivery?driverId=$driverId", "DELIVERY", driverId)
-        } catch (e: Exception) {
-            Log.d("SupabaseManager", "Notice: Server response for orders: ${e.message}")
+        val ordersMap = mutableMapOf<String, SupabaseOrderDto>()
+
+        val endpointsToTry = listOf(
+            Pair("${functionsBase()}/driver-api/routes/collection?driverId=$driverId", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/routes/delivery?driverId=$driverId", "DELIVERY"),
+            Pair("${functionsBase()}/driver-api/routes/collection?driver_id=$driverId", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/routes/delivery?driver_id=$driverId", "DELIVERY"),
+            Pair("${functionsBase()}/driver-api/routes/collection", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/routes/delivery", "DELIVERY"),
+            Pair("${functionsBase()}/driver-api/orders?driverId=$driverId", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/orders?driver_id=$driverId", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/orders", "PICKUP"),
+            Pair("${functionsBase()}/driver-api/routes", "PICKUP"),
+            Pair("${supabaseUrl.trim().removeSuffix("/")}/rest/v1/orders?order=created_at.desc&limit=100", "PICKUP")
+        )
+
+        for ((url, defaultType) in endpointsToTry) {
+            try {
+                val fetched = fetchRoute(url, defaultType, driverId)
+                for (order in fetched) {
+                    if (order.id.isNotBlank()) {
+                        // Keep or merge order
+                        val existing = ordersMap[order.id]
+                        if (existing == null) {
+                            ordersMap[order.id] = order
+                        } else {
+                            // Merge with richer data
+                            ordersMap[order.id] = existing.copy(
+                                customer_name = order.customer_name.ifBlank { existing.customer_name },
+                                customer_phone = order.customer_phone.ifBlank { existing.customer_phone },
+                                customer_address = order.customer_address.ifBlank { existing.customer_address },
+                                status = if (order.status.isNotBlank()) order.status else existing.status,
+                                stage = if (order.stage.isNotBlank()) order.stage else existing.stage,
+                                total_amount = if (order.total_amount > 0L) order.total_amount else existing.total_amount,
+                                final_payable = if (order.final_payable > 0L) order.final_payable else existing.final_payable,
+                                paid_amount = if (order.paid_amount > 0L) order.paid_amount else existing.paid_amount,
+                                payment_status = if (order.payment_status.isNotBlank()) order.payment_status else existing.payment_status,
+                                rack_code = if (order.rack_code.isNotBlank()) order.rack_code else existing.rack_code
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d("SupabaseManager", "Notice: endpoint $url query response: ${e.message}")
+            }
         }
-        result
+
+        ordersMap.values.toList()
     }
 
-    private fun fetchRoute(url: String, orderType: String, driverId: String): List<SupabaseOrderDto> {
+    private fun fetchRoute(url: String, defaultOrderType: String, driverId: String): List<SupabaseOrderDto> {
         val request = baseRequest(url).get().build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return emptyList()
             val body = response.body?.string()?.trim() ?: return emptyList()
-            val root = JSONObject(body)
-            val ordersArray = root.optJSONArray("orders") ?: return emptyList()
-            val list = mutableListOf<SupabaseOrderDto>()
-            for (i in 0 until ordersArray.length()) {
-                val obj = ordersArray.optJSONObject(i) ?: continue
-                val totalAmount = obj.optLong("totalAmount", 0L)
-                val remaining = obj.optLong("remainingAmount", 0L)
-                list.add(
-                    SupabaseOrderDto(
-                        id = obj.optString("id"),
-                        tracking_code = obj.optString("id"),
-                        customer_name = obj.optString("customerName"),
-                        customer_phone = obj.optString("customerPhone"),
-                        customer_address = obj.optString("address"),
-                        lat = obj.optDouble("latitude", 35.779),
-                        lng = obj.optDouble("longitude", 51.405),
-                        stage = driverApiStatusToLocalStage(obj.optString("status", "ASSIGNED")),
-                        status = driverApiStatusToLocalStatus(obj.optString("status", "ASSIGNED")),
-                        order_type = orderType,
-                        driver_id = driverId,
-                        driver_name = "",
-                        total_amount = totalAmount,
-                        discount_amount = 0L,
-                        final_payable = totalAmount,
-                        paid_amount = obj.optLong("prepaidAmount", 0L),
-                        payment_method = driverApiPaymentMethodToLocal(obj.optString("paymentMethod", "PENDING")),
-                        payment_status = if (remaining <= 0L && totalAmount > 0L) "paid" else "unpaid",
-                        rack_code = obj.optString("rackCode", ""),
-                        clean_rack_code = "",
-                        return_reason = "",
-                        customer_signature_url = "",
-                        notes = obj.optString("notes", "")
-                    )
-                )
-            }
-            return list
+            return parseOrdersFromRawJson(body, defaultOrderType, driverId)
         }
+    }
+
+    private fun parseOrdersFromRawJson(body: String, defaultOrderType: String, driverId: String): List<SupabaseOrderDto> {
+        val list = mutableListOf<SupabaseOrderDto>()
+        try {
+            if (body.startsWith("[")) {
+                val array = JSONArray(body)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    parseSingleOrderJson(obj, defaultOrderType, driverId)?.let { list.add(it) }
+                }
+            } else if (body.startsWith("{")) {
+                val root = JSONObject(body)
+                val directArrays = listOf(
+                    Pair(root.optJSONArray("orders"), defaultOrderType),
+                    Pair(root.optJSONArray("data"), defaultOrderType),
+                    Pair(root.optJSONArray("items"), defaultOrderType),
+                    Pair(root.optJSONArray("routes"), defaultOrderType),
+                    Pair(root.optJSONArray("collection"), "PICKUP"),
+                    Pair(root.optJSONArray("delivery"), "DELIVERY"),
+                    Pair(root.optJSONArray("result"), defaultOrderType)
+                )
+
+                var foundAnyArray = false
+                for ((arr, type) in directArrays) {
+                    if (arr != null && arr.length() > 0) {
+                        foundAnyArray = true
+                        for (i in 0 until arr.length()) {
+                            val obj = arr.optJSONObject(i) ?: continue
+                            parseSingleOrderJson(obj, type, driverId)?.let { list.add(it) }
+                        }
+                    }
+                }
+
+                // Check nested object e.g. root.data.orders
+                if (!foundAnyArray) {
+                    val nestedData = root.optJSONObject("data")
+                    if (nestedData != null) {
+                        val nestedOrders = nestedData.optJSONArray("orders") ?: nestedData.optJSONArray("items") ?: nestedData.optJSONArray("routes")
+                        if (nestedOrders != null) {
+                            for (i in 0 until nestedOrders.length()) {
+                                val obj = nestedOrders.optJSONObject(i) ?: continue
+                                parseSingleOrderJson(obj, defaultOrderType, driverId)?.let { list.add(it) }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SupabaseManager", "Error parsing orders json", e)
+        }
+        return list
+    }
+
+    private fun parseSingleOrderJson(obj: JSONObject, defaultOrderType: String, driverId: String): SupabaseOrderDto? {
+        val id = obj.optString("id").ifBlank {
+            obj.optString("order_id").ifBlank {
+                obj.optString("orderId").ifBlank {
+                    obj.optString("tracking_code").ifBlank {
+                        obj.optString("trackingCode").ifBlank { obj.optString("code") }
+                    }
+                }
+            }
+        }.trim()
+
+        if (id.isBlank()) return null
+
+        val trackingCode = obj.optString("tracking_code").ifBlank {
+            obj.optString("trackingCode").ifBlank {
+                obj.optString("code").ifBlank { id }
+            }
+        }.trim()
+
+        val customerName = obj.optString("customer_name").ifBlank {
+            obj.optString("customerName").ifBlank {
+                obj.optString("name").ifBlank {
+                    obj.optString("customer", "مشتری قالیشویی زمرد")
+                }
+            }
+        }.trim()
+
+        val customerPhone = obj.optString("customer_phone").ifBlank {
+            obj.optString("customerPhone").ifBlank {
+                obj.optString("phone").ifBlank {
+                    obj.optString("mobile", "")
+                }
+            }
+        }.trim()
+
+        val customerAddress = obj.optString("customer_address").ifBlank {
+            obj.optString("customerAddress").ifBlank {
+                obj.optString("address").ifBlank {
+                    obj.optString("location", "تهران")
+                }
+            }
+        }.trim()
+
+        val lat = if (obj.has("latitude")) obj.optDouble("latitude") else if (obj.has("lat")) obj.optDouble("lat") else 35.7796
+        val lng = if (obj.has("longitude")) obj.optDouble("longitude") else if (obj.has("lng")) obj.optDouble("lng") else if (obj.has("lon")) obj.optDouble("lon") else 51.4058
+
+        val rawStatus = obj.optString("status").ifBlank {
+            obj.optString("stage").ifBlank {
+                obj.optString("order_status").ifBlank { "ASSIGNED" }
+            }
+        }.trim()
+
+        val rawType = obj.optString("order_type").ifBlank {
+            obj.optString("orderType").ifBlank {
+                obj.optString("type").ifBlank { defaultOrderType }
+            }
+        }.trim().uppercase()
+
+        val normalizedOrderType = if (
+            rawType.contains("DELIVERY") || rawType.contains("تحویل") ||
+            rawStatus.equals("READY_FOR_DELIVERY", ignoreCase = true) ||
+            rawStatus.equals("ready_for_delivery", ignoreCase = true) ||
+            rawStatus.equals("out_for_delivery", ignoreCase = true)
+        ) {
+            "DELIVERY"
+        } else {
+            "PICKUP"
+        }
+
+        val totalAmount = if (obj.has("total_amount")) obj.optLong("total_amount")
+        else if (obj.has("totalAmount")) obj.optLong("totalAmount")
+        else if (obj.has("totalPrice")) obj.optLong("totalPrice")
+        else if (obj.has("price")) obj.optLong("price")
+        else obj.optLong("amount", 0L)
+
+        val paidAmount = if (obj.has("paid_amount")) obj.optLong("paid_amount")
+        else if (obj.has("paidAmount")) obj.optLong("paidAmount")
+        else if (obj.has("prepaid_amount")) obj.optLong("prepaid_amount")
+        else if (obj.has("prepaidAmount")) obj.optLong("prepaidAmount")
+        else if (obj.has("deposit_amount")) obj.optLong("deposit_amount")
+        else 0L
+
+        val discountAmount = if (obj.has("discount_amount")) obj.optLong("discount_amount")
+        else if (obj.has("discountAmount")) obj.optLong("discountAmount")
+        else if (obj.has("discount")) obj.optLong("discount")
+        else 0L
+
+        val remainingAmount = if (obj.has("remaining_amount")) obj.optLong("remaining_amount")
+        else if (obj.has("remainingAmount")) obj.optLong("remainingAmount")
+        else (totalAmount - discountAmount - paidAmount).coerceAtLeast(0L)
+
+        val finalPayable = if (obj.has("final_payable")) obj.optLong("final_payable")
+        else if (obj.has("finalPayable")) obj.optLong("finalPayable")
+        else (totalAmount - discountAmount).coerceAtLeast(0L)
+
+        val paymentMethod = driverApiPaymentMethodToLocal(
+            obj.optString("payment_method").ifBlank {
+                obj.optString("paymentMethod").ifBlank {
+                    obj.optString("payment_type", "PENDING")
+                }
+            }
+        )
+
+        val paymentStatus = obj.optString("payment_status").ifBlank {
+            obj.optString("paymentStatus", if (remainingAmount <= 0L && totalAmount > 0L) "paid" else "unpaid")
+        }
+
+        val rackCode = obj.optString("rack_code").ifBlank {
+            obj.optString("rackCode").ifBlank {
+                obj.optString("shelf", "")
+            }
+        }
+
+        val cleanRackCode = obj.optString("clean_rack_code").ifBlank {
+            obj.optString("cleanRackCode", "")
+        }
+
+        val returnReason = obj.optString("return_reason").ifBlank {
+            obj.optString("returnReason", "")
+        }
+
+        val customerSignatureUrl = obj.optString("customer_signature_url").ifBlank {
+            obj.optString("customerSignatureUrl").ifBlank {
+                obj.optString("signature_url", "")
+            }
+        }
+
+        val notes = obj.optString("notes").ifBlank {
+            obj.optString("note").ifBlank {
+                obj.optString("description", "")
+            }
+        }
+
+        val orderDriverId = obj.optString("driver_id").ifBlank {
+            obj.optString("driverId", driverId)
+        }
+
+        val orderDriverName = obj.optString("driver_name").ifBlank {
+            obj.optString("driverName", "سفیر مسعود بختیاری")
+        }
+
+        return SupabaseOrderDto(
+            id = id,
+            tracking_code = trackingCode,
+            customer_name = customerName,
+            customer_phone = customerPhone,
+            customer_address = customerAddress,
+            lat = lat,
+            lng = lng,
+            stage = driverApiStatusToLocalStage(rawStatus),
+            status = driverApiStatusToLocalStatus(rawStatus),
+            order_type = normalizedOrderType,
+            driver_id = orderDriverId,
+            driver_name = orderDriverName,
+            total_amount = totalAmount,
+            discount_amount = discountAmount,
+            final_payable = finalPayable,
+            paid_amount = paidAmount,
+            payment_method = paymentMethod,
+            payment_status = paymentStatus,
+            rack_code = rackCode,
+            clean_rack_code = cleanRackCode,
+            return_reason = returnReason,
+            customer_signature_url = customerSignatureUrl,
+            notes = notes
+        )
     }
 
     // ==========================================================================

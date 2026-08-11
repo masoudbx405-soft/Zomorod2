@@ -286,10 +286,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
+            if (networkMonitor.isOnline.value) {
+                syncWithWebPanel()
+            }
         }
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->
-                if (online && (pendingQueueCount.value > 0 || unsyncedCount.value > 0)) {
+                if (online) {
                     syncWithWebPanel()
                 }
             }
@@ -525,7 +528,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 )
 
                 repository.saveDriverSettlement(settlementEntity)
-                val success = repository.syncWithWebPanel(serverUrl.value)
+                val currentDriverId = prefs.getString("driver_id", "DRV-101") ?: "DRV-101"
+                val success = repository.syncWithWebPanel(serverUrl.value, currentDriverId)
                 repository.archiveSettledOrders()
                 _isSyncing.value = false
                 _syncToastMessage.value = "تسویه روزانه ثبت و به سرور panel.yaselectrical.ir ارسال شد."
@@ -576,7 +580,27 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun syncWithWebPanel() {
         viewModelScope.launch {
             _isSyncing.value = true
-            val success = repository.syncWithWebPanel(serverUrl.value)
+            val currentDriverId = prefs.getString("driver_id", "DRV-101") ?: "DRV-101"
+            val success = repository.syncWithWebPanel(
+                serverBaseUrl = serverUrl.value,
+                driverId = currentDriverId,
+                onNewOrder = { order ->
+                    ZomorrodNotificationManager.sendNewOrderNotification(
+                        context = getApplication(),
+                        orderId = order.id,
+                        customerName = order.customerName,
+                        address = order.address,
+                        orderType = order.orderType
+                    )
+                },
+                onNewMessage = { message ->
+                    ZomorrodNotificationManager.sendNewDispatcherMessageNotification(
+                        context = getApplication(),
+                        senderName = message.senderName,
+                        messageText = message.messageText
+                    )
+                }
+            )
             _isSyncing.value = false
             if (success) {
                 _syncToastMessage.value = "همگام‌سازی واقعی با سرور ${serverUrl.value} با موفقیت انجام شد"

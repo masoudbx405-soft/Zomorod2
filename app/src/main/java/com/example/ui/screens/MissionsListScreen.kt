@@ -50,17 +50,24 @@ fun MissionsListScreen(
                 order.id.contains(searchQuery, true) ||
                 order.address.contains(searchQuery, true)
 
+        val isOrderPickup = order.orderType.equals("PICKUP", ignoreCase = true) ||
+                            order.orderType.equals("COLLECTION", ignoreCase = true) ||
+                            order.orderType.isBlank()
+        val isOrderDelivery = order.orderType.equals("DELIVERY", ignoreCase = true) ||
+                              order.status == "READY_FOR_DELIVERY" ||
+                              order.status == "DELIVERED_SETTLED"
+
         val matchesType = when (selectedOrderTypeTab) {
-            1 -> order.status == "ASSIGNED"
+            1 -> isOrderPickup && (order.status == "ASSIGNED" || order.status == "pickup_assigned")
             3 -> order.status == "COLLECTED_IN_INSPECTION"
-            2 -> order.orderType == "DELIVERY" || order.status == "READY_FOR_DELIVERY" || order.status == "DELIVERED_SETTLED"
+            2 -> isOrderDelivery
             else -> true
         }
 
         val matchesStatus = when (statusFilter) {
-            "ASSIGNED" -> order.status == "ASSIGNED"
+            "ASSIGNED" -> order.status == "ASSIGNED" || order.status == "pickup_assigned"
             "COLLECTED" -> order.status == "COLLECTED_IN_INSPECTION"
-            "DELIVERY" -> order.status == "READY_FOR_DELIVERY"
+            "DELIVERY" -> order.status == "READY_FOR_DELIVERY" || (order.orderType == "DELIVERY" && order.status == "ASSIGNED")
             "SETTLED" -> order.status == "DELIVERED_SETTLED"
             else -> true
         }
@@ -398,7 +405,9 @@ fun OrderMissionCard(
     onOpenScanner: (ScanStage) -> Unit = {}
 ) {
     val order = orderWithItems.order
-    val isPickup = order.orderType == "PICKUP"
+    val isPickup = order.orderType.equals("PICKUP", ignoreCase = true) ||
+                   order.orderType.equals("COLLECTION", ignoreCase = true) ||
+                   order.orderType.isBlank()
 
     Card(
         shape = RoundedCornerShape(20.dp),
